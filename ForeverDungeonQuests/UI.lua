@@ -36,7 +36,7 @@ local STATUS_COLOR = {
 local STATUS_LABEL = {
   completed = "Done",
   active = "In Log",
-  ["dungeon-drop"] = "Dungeon Drop",
+  ["dungeon-drop"] = "Drop",
   missing = "Missing",
 }
 
@@ -695,14 +695,22 @@ local function LayoutRow(f, index, y, quest, status)
 
   row.pickup:ClearAllPoints()
   row.pickup:SetPoint("TOPLEFT", COL.pickup.x, -y)
-  local pickupText = quest.giver or "?"
-  if quest.location then
-    pickupText = pickupText .. " - " .. quest.location
+  -- Dungeon-drop quests have no real pickup point -- the "giver" is just the
+  -- mob/source the item drops from, which is already redundant with the
+  -- "Drop" status and the quest's notes line explaining it. Leave the
+  -- column blank for these instead of repeating the same info twice.
+  if quest.dungeonDrop then
+    row.pickup:SetText("")
+  else
+    local pickupText = quest.giver or "?"
+    if quest.location then
+      pickupText = pickupText .. " - " .. quest.location
+    end
+    if quest.coords then
+      pickupText = pickupText .. " /way " .. quest.coords
+    end
+    row.pickup:SetText(pickupText)
   end
-  if quest.coords then
-    pickupText = pickupText .. " /way " .. quest.coords
-  end
-  row.pickup:SetText(pickupText)
 
   row.status:Show()
   row.name:Show()
