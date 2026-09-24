@@ -212,6 +212,16 @@ and attaches it to an auto-generated GitHub Release as
 `ForeverDungeonQuests-v0.2.0.zip`. Regular commits/pushes to `main` do **not**
 trigger a build — only tags matching `v*`.
 
+Before tagging, update three things (in this order, since the changelog
+entry is written last so it reflects what actually landed):
+1. `ForeverDungeonQuests/ForeverDungeonQuests.toc`'s `## Version:` line.
+2. [`CHANGELOG.md`](CHANGELOG.md) — add a dated `## [x.y.z]` section (Keep a
+   Changelog style) above the previous version, linking to the release once
+   it exists (`https://github.com/ImSundee/forever-dungeon-quest/releases/tag/vX.Y.Z`).
+   This is the long-term historical record the project didn't have before
+   v0.2.0 — don't let it drift out of sync with what a tag actually shipped.
+3. Then tag and push.
+
 ## Session continuity notes
 
 If you're picking this up in a new session: read this file first, then skim
