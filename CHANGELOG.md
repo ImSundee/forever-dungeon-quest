@@ -18,6 +18,22 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 - Options panel (Blizzard's Interface Options, via the modern Settings API)
   with a single "Dungeon entry alert" dropdown: Off / Pop-up alert / Chat
   message / Both. Defaults to pop-up alert.
+- New "Drop" quest status for quests that start from an item drop inside
+  the dungeon itself (e.g. *The Glowing Shard* off Mutanus the Devourer in
+  Wailing Caverns) rather than from an NPC or object you could go pick up
+  beforehand — these no longer show as `Missing`, which was misleading
+  since there's nothing to go get ahead of time. Only applied to
+  drop-starters where the drop actually happens inside the relevant
+  dungeon; a few Wowhead-listed drop quests picked up just outside an
+  instance (e.g. the Uldaman necklace quests) are left as ordinary
+  missable quests.
+
+### Changed
+- Quest table's Pickup column and notes line no longer repeat "Drop-only"
+  text for the new drop-status quests now that the status itself says so —
+  the Pickup column still shows what the item drops from and where, and
+  any other useful note (a prerequisite, a quest chain, an eligibility
+  requirement) is kept.
 
 ## [0.3.3] - 2026-09-24
 
