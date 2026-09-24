@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/icon-512.png" width="128" alt="Forever Dungeon Quests logo" />
+</p>
+
 # Forever Dungeon Quests
 
 A World of Warcraft: Forever addon that shows you which dungeon quests you
