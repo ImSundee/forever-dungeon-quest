@@ -1,0 +1,29 @@
+name: Release
+
+# Fires when a version tag is pushed, e.g.:
+#   git tag v0.2.0 && git push origin v0.2.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Zip addon folder
+        run: |
+          cd ForeverDungeonQuests
+          zip -r "../ForeverDungeonQuests-${GITHUB_REF_NAME}.zip" . -x ".*"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ForeverDungeonQuests-${{ github.ref_name }}.zip
+          generate_release_notes: true

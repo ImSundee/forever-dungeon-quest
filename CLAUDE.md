@@ -115,6 +115,23 @@ upper/lower halves).
       prerequisite quests are done. Would need those chain quests added as
       their own entries to check programmatically.
 
+## Releases
+
+`.github/workflows/release.yml` builds a release on GitHub Actions (repo is
+hosted on GitHub, not GitLab, despite an earlier mention of GitLab — corrected
+during setup). Trigger: pushing a version tag.
+
+```
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+That zips the `ForeverDungeonQuests/` folder (as-is, so the zip's top-level
+folder is `ForeverDungeonQuests/`, matching what WoW's AddOns folder expects)
+and attaches it to an auto-generated GitHub Release as
+`ForeverDungeonQuests-v0.2.0.zip`. Regular commits/pushes to `main` do **not**
+trigger a build — only tags matching `v*`.
+
 ## Session continuity notes
 
 If you're picking this up in a new session: read this file first, then skim
