@@ -89,3 +89,9 @@ WoW: Forever is still in Beta, and so is this addon:
 
 If you spot wrong or outdated info, please open an issue on the
 [GitHub repo](https://github.com/ImSundee/forever-dungeon-quest/issues).
+
+## License
+
+MIT — see [LICENSE](LICENSE). The bundled Overpass font is separately
+licensed under the SIL Open Font License; see
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

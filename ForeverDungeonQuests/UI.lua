@@ -15,12 +15,14 @@
 -- 1). Not yet verified against a live client with EllesmereUI actually
 -- installed -- see CLAUDE.md.
 --
--- Default font/accent color: everything defaults to Expressway (see
--- FONT_PATH/ApplyDefaultFont below) via an optional LibSharedMedia-3.0
--- lookup, and the dropdown's selected-row swatch prefers EllesmereUI's own
--- live accent color (GetAccentColor()) over our static ACCENT_COLOR guess
--- when EUI is present -- both are best-effort "match EllesmereUI's own
--- defaults" per user request, not hard dependencies.
+-- Default font/accent color: text defaults to real Expressway if something
+-- on the system already provides it (LibSharedMedia, or EllesmereUI's own
+-- bundled copy), otherwise to Overpass, an OFL-licensed lookalike bundled
+-- in Fonts/ (see FONT_PATH below for the full chain). The dropdown's
+-- selected-row swatch prefers EllesmereUI's own live accent color
+-- (GetAccentColor()) over our static ACCENT_COLOR guess when EUI is
+-- present. Both are best-effort "match EllesmereUI's own defaults" per
+-- user request, not hard dependencies.
 
 local ADDON_NAME = "Forever Dungeon Quests"
 
@@ -47,25 +49,29 @@ local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
 -- Blizzard's own Edit Mode settings dropdowns.
 local ACCENT_COLOR = { 0.85, 0.55, 0.25 }
 
--- Default font: Expressway, a common WoW UI font (also EllesmereUI's own
--- default) that isn't bundled with the game itself, and we don't ship a
--- font file in this addon either (redistributing someone else's bundled
--- font in a public repo is a licensing question we'd rather not create).
--- Instead, try two things that reference an *existing* copy rather than
--- copying one ourselves:
+-- Default font. Preference order:
 --   1. LibSharedMedia-3.0, if some other addon has registered "Expressway"
---      with it.
---   2. EllesmereUI's own bundled copy, by path -- if EllesmereUI is
---      installed, this file already exists on disk; we're just pointing
---      at it, the same way LibSharedMedia itself works under the hood.
--- If neither resolves, every FontString below just keeps whatever font its
--- GameFont* template already uses.
+--      with it -- someone else's real Expressway, not ours to redistribute.
+--   2. EllesmereUI's own bundled copy of Expressway, by path -- if
+--      EllesmereUI is installed, this file already exists on disk; we're
+--      just pointing at it, the same way LibSharedMedia itself works under
+--      the hood. Still not something we ship ourselves.
+--   3. Our own bundled font, Fonts/Overpass-Regular.ttf -- Overpass is
+--      licensed under the SIL Open Font License (see Fonts/LICENSE.md),
+--      which explicitly permits bundling/redistributing with other
+--      software (OFL 1.1, condition 2), unlike Expressway's proprietary
+--      EULA. It's a deliberate lookalike: Overpass is an open-source
+--      interpretation of the same U.S. "Highway Gothic" (FHWA Series)
+--      letterforms that Expressway itself is based on, so it's a close
+--      visual match without any licensing risk. This is the guaranteed
+--      fallback -- always available, no other addon required.
 local FONT_CANDIDATES = {
   "Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway.TTF",
 }
+local BUNDLED_FONT = "Interface\\AddOns\\ForeverDungeonQuests\\Fonts\\Overpass-Regular.ttf"
 
 local FONT_PATH
-local FONT_SOURCE -- for the debug print below: "LibSharedMedia", "EllesmereUI path guess", or nil
+local FONT_SOURCE -- for the debug print below
 do
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if LSM then
@@ -77,6 +83,10 @@ do
   if not FONT_PATH and EllesmereUI then
     FONT_PATH = FONT_CANDIDATES[1]
     FONT_SOURCE = "EllesmereUI path guess"
+  end
+  if not FONT_PATH then
+    FONT_PATH = BUNDLED_FONT
+    FONT_SOURCE = "bundled Overpass (OFL)"
   end
 end
 

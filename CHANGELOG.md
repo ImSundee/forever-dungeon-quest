@@ -33,15 +33,21 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   small accent-colored swatch per row (instead of a full-row highlight) and
   thin dividers between rows, modeled on a screenshot of Blizzard's own
   Edit Mode settings dropdown.
-- Default font is now Expressway (matching EllesmereUI's own default). No
-  font file is bundled with this addon — it tries a `LibSharedMedia-3.0`
-  lookup first, then falls back to referencing EllesmereUI's own bundled
-  copy by path if EllesmereUI is installed (same approach LibSharedMedia
-  itself uses: point at a file already on disk rather than ship a copy).
-  Falls back to the stock `GameFont*` templates if neither resolves. The
-  dropdown's selected-row swatch also now prefers EllesmereUI's *live*
-  accent color over our own static orange guess, when EllesmereUI is
-  present.
+- Default font: prefers real Expressway if something on the system already
+  provides it (confirmed working in-game via `LibSharedMedia-3.0`, which
+  EllesmereUI itself registers it with), otherwise falls back to
+  **Overpass**, an SIL Open Font License font now bundled in
+  `ForeverDungeonQuests/Fonts/` — a deliberate visual lookalike (both are
+  independent takes on the same U.S. "Highway Gothic" letterforms).
+  Expressway itself is not bundled: its proprietary EULA doesn't grant
+  redistribution rights for embedding in software. The dropdown's
+  selected-row swatch also now prefers EllesmereUI's *live* accent color
+  over our own static orange guess, when EllesmereUI is present.
+
+### Added
+- `LICENSE` (MIT) and `THIRD_PARTY_LICENSES.md` (covering the bundled
+  Overpass font, under its own SIL Open Font License) — the repo didn't
+  have a license before this.
 
 ### Fixed
 - Crash when opening the window: `SetNormalTexture(nil)` (and the Pushed/

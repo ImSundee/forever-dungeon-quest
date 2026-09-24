@@ -185,49 +185,62 @@ was changed because it looked inconsistent/dated next to a themed UI and
 had no addon branding. The window has a persistent `"Forever Dungeon Quests"`
 brand label above its title.
 
-#### Default font (Expressway) and live accent color
+#### Default font (Expressway, or Overpass as a licensed fallback) and live accent color
 
-Two more "match EllesmereUI's own look" pieces, both best-effort and
-independent of whether EUI is actually installed:
-
-- **Font**: `FONT_PATH` tries two things, neither of which involves
-  bundling a font file in this addon (redistributing someone else's
-  font binary in a public repo is a licensing question worth avoiding):
-  1. `LibStub("LibSharedMedia-3.0", true):Fetch("font", "Expressway", true)`,
-     in case some other addon (e.g. `gmFonts`) has registered it.
-  2. If that comes up empty and the global `EllesmereUI` table exists,
-     fall back to `Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF`
-     by path -- confirmed present on disk in the dev/test install
-     (`_classic_beta_/Interface/AddOns/EllesmereUI/media/fonts/`, alongside
-     an `Expressway Bold.ttf`). This works the same way LibSharedMedia
-     itself does under the hood: point at a file that's already on the
-     user's system rather than shipping a copy. If EllesmereUI's internal
-     folder layout changes in a future EUI update, this guess would need
-     updating.
+- **Font**: `FONT_PATH` tries, in order:
+  1. `LibStub("LibSharedMedia-3.0", true):Fetch("font", "Expressway", true)`
+     -- **confirmed working in-game (2026-09-24)**: the debug print (see
+     below) showed this actually resolves to
+     `Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF` with
+     `SetFont` returning `true`, meaning EllesmereUI itself registers
+     "Expressway" with LibSharedMedia -- the earlier assumption that it
+     manages fonts purely internally was wrong.
+  2. If LibSharedMedia comes up empty and the global `EllesmereUI` table
+     exists, fall back to that same path by direct guess (belt-and-suspenders
+     for installs where LSM isn't registered but the file is still there).
+  3. **`Fonts/Overpass-Regular.ttf`, bundled in this repo** -- the
+     guaranteed final fallback, so the font situation isn't a no-op for
+     anyone without EllesmereUI. Overpass is licensed under the
+     [SIL Open Font License](../ForeverDungeonQuests/Fonts/LICENSE-Overpass.md)
+     (see [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md) for the
+     full reasoning), pulled unmodified from
+     [github.com/googlefonts/overpass](https://github.com/googlefonts/overpass).
+     It was picked specifically because it's an open-source interpretation
+     of the same U.S. FHWA "Highway Gothic" letterforms Expressway itself
+     is based on -- a deliberate visual lookalike, not an arbitrary
+     substitute. **Expressway itself was never bundled** in this repo: it's
+     under a proprietary Fontspring EULA whose free "desktop license" does
+     not grant redistribution rights for embedding in software (that
+     requires a separate paid "Application License") -- confirmed by
+     reading Font Squirrel's license page and Fontspring's EULA terms
+     directly. Also confirmed that EllesmereUI's own `license.txt` doesn't
+     change this: it disclaims EllesmereUI's *own* copyright claim over
+     third-party resources, but a disclaimer isn't a redistribution grant,
+     and only Fontspring/Typodermic can grant one.
   `ApplyDefaultFont(fontString)` applies whichever `FONT_PATH` resolved to
   every FontString we create (keeping its template's size/outline flags).
-  `fontPathFailed` is a one-shot latch: if `SetFont` returns `false` on the
-  very first FontString it's tried on (path guess was wrong even though
-  `EllesmereUI` existed), every later call becomes a no-op instead of
-  repeating a call that's already known to fail. EllesmereUI's own
-  `skin.Font()` call, when present, runs *after* `ApplyDefaultFont` in every
-  call site, so EUI's own live font choice still wins over our Expressway
-  attempt when EUI is actively skinning this addon.
+  `fontPathFailed` is a one-shot latch: if `SetFont` ever returns `false`
+  on the first FontString it's tried on, every later call becomes a no-op
+  instead of repeating a call already known to fail -- in practice this
+  shouldn't trigger now that there's always a real, addon-relative bundled
+  path as the final fallback. EllesmereUI's own `skin.Font()` call, when
+  present, runs *after* `ApplyDefaultFont` in every call site, so EUI's own
+  live font choice still wins when EUI is actively skinning this addon.
+  `PrintFontDebug` prints a one-shot chat line reporting `LibStub` presence,
+  the resolved `FONT_PATH`/`FONT_SOURCE`, and whether `SetFont` succeeded --
+  useful to leave in for now given how much back-and-forth this took to
+  nail down; remove once confident it's not needed anymore.
 - **Accent color**: the dropdown menu's selected-row swatch calls
   `GetAccentColor()`, which prefers EllesmereUI's live `S.GetAccentColor()`
   over the static `ACCENT_COLOR` fallback table when `skin` is set. Not
   cached (re-read every time the dropdown re-renders), per EllesmereUI's own
   guidance not to cache getter results.
 
-**Confirmed in-game (2026-09-24)**: the first version of this (LibSharedMedia
-lookup only, no EllesmereUI path fallback) did nothing — a screenshot showed
-plain default Blizzard font everywhere despite EllesmereUI being installed
-on that machine. Most likely explanation: EllesmereUI manages its own fonts
-internally rather than registering them with classic LibSharedMedia-3.0, so
-the lookup came up empty with nothing to fall back to. The by-path fallback
-above was added specifically to address this. **Still unverified**: whether
-the by-path fallback actually resolves and renders correctly -- hasn't been
-screenshotted yet since adding it.
+**Still unverified**: whether the bundled-Overpass path actually renders
+visibly differently from the default `GameFont*` templates in-game --
+confirmed working via the LibSharedMedia branch already (see above), but
+the Overpass fallback branch specifically hasn't been screenshotted since
+it was added.
 
 **Unverified**: this was written directly against EllesmereUI's
 `SKINNING_API.md` (apiVersion 1) without a live client + EllesmereUI
@@ -362,6 +375,17 @@ entry is written last so it reflects what actually landed):
    This is the long-term historical record the project didn't have before
    v0.2.0 — don't let it drift out of sync with what a tag actually shipped.
 3. Then tag and push.
+
+## Licensing
+
+This repo's own code/data is MIT-licensed ([LICENSE](LICENSE)). Any bundled
+third-party asset keeps its own license instead, tracked in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) — currently just the
+Overpass font (see "Default font" above for why it's there instead of
+Expressway). If a future change bundles another third-party asset (another
+font, a texture, a library), add an entry there rather than assuming MIT
+covers it — MIT is what covers *this project's* code, not whatever else
+gets dropped into the repo.
 
 ## Session continuity notes
 
