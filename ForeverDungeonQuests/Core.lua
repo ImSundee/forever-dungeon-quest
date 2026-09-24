@@ -78,6 +78,33 @@ function FDQ:GetQuestStatus(quest, activeTitles)
   return "missing"
 end
 
+-- Status of a bare prerequisite quest name (quest.prereqs entries in
+-- Data.lua): matched the same way as any other quest, by title, against the
+-- same active/completed indexes -- the prereq doesn't need its own entry in
+-- Data.lua for this to work. No "dungeon-drop" case here since a
+-- prerequisite is always something picked up beforehand, not inside the
+-- dungeon that's asking for it.
+function FDQ:GetPrereqStatus(prereqName, activeTitles)
+  if activeTitles[prereqName] then
+    return "active"
+  end
+  if FDQ_DB.completedTitles[prereqName] then
+    return "completed"
+  end
+  return "missing"
+end
+
+-- Returns { {name=, status=}, ... } for quest.prereqs, or nil if the quest
+-- has none.
+function FDQ:GetPrereqStatuses(quest, activeTitles)
+  if not quest.prereqs then return nil end
+  local statuses = {}
+  for _, prereqName in ipairs(quest.prereqs) do
+    table.insert(statuses, { name = prereqName, status = FDQ:GetPrereqStatus(prereqName, activeTitles) })
+  end
+  return statuses
+end
+
 -- Returns the dungeon table whose aliases best match the given zone/instance name.
 function FDQ:FindDungeonByZoneName(zoneName)
   if not zoneName or zoneName == "" then return nil end
@@ -125,6 +152,7 @@ function FDQ:BuildReport(dungeon)
       table.insert(rows, {
         quest = quest,
         status = FDQ:GetQuestStatus(quest, activeTitles),
+        prereqStatuses = FDQ:GetPrereqStatuses(quest, activeTitles),
       })
     end
   end

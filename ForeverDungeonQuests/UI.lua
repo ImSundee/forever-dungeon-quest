@@ -152,6 +152,12 @@ local selectedDungeon    -- the dungeon currently shown in the right-hand table
 local mainFrame
 local skin -- set by EllesmereUI.RegisterSkin's callback, nil if EUI isn't present/enabled
 
+-- Which quests currently have their prerequisite list expanded, keyed by
+-- the quest table itself (stable identity for the session -- these come
+-- straight out of FDQ_Dungeons, never copied). Sticky across SelectDungeon
+-- re-renders (e.g. toggling a row), reset only by a UI reload.
+local expandedQuests = {}
+
 -- Prefers EllesmereUI's own live accent color (so this addon's swatches
 -- match whatever the user actually has EllesmereUI set to) over our own
 -- static ACCENT_COLOR guess. Per-call rather than cached, since EUI's
@@ -644,14 +650,39 @@ local function GetRow(f, index)
     row.notes:SetJustifyH("LEFT")
     row.notes:SetWordWrap(false)
 
+    -- Invisible overlay button over the quest name, for quests with
+    -- quest.prereqs -- click toggles expandedQuests[quest] and re-renders.
+    -- A FontString on its own can't receive clicks, so this sits on top of
+    -- row.name rather than replacing it.
+    row.expandBtn = CreateFrame("Button", nil, f.tableContent)
+    row.expandBtn:SetSize(COL.name.w, ROW_HEIGHT)
+    row.expandBtn:Hide()
+
+    -- Lazily-grown pool of prereq status lines shown under a row when
+    -- expanded -- count varies per quest, unlike the fixed cells above.
+    row.prereqFS = {}
+
     f.rows[index] = row
   end
   return row
 end
 
+local function GetPrereqLine(f, row, idx)
+  local fs = row.prereqFS[idx]
+  if not fs then
+    fs = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(fs)
+    fs:SetJustifyH("LEFT")
+    fs:SetWordWrap(false)
+    if skin then skin.Font(fs) end
+    row.prereqFS[idx] = fs
+  end
+  return fs
+end
+
 -- Positions row `index`'s cells at vertical offset `y` (both in the table's
 -- content frame), and fills in the quest's data. Returns the height consumed.
-local function LayoutRow(f, index, y, quest, status)
+local function LayoutRow(f, index, y, quest, status, prereqStatuses)
   local row = GetRow(f, index)
 
   row.waypoint:ClearAllPoints()
@@ -687,7 +718,19 @@ local function LayoutRow(f, index, y, quest, status)
 
   row.name:ClearAllPoints()
   row.name:SetPoint("TOPLEFT", COL.name.x, -y)
-  row.name:SetText(quest.name)
+  if quest.prereqs then
+    row.name:SetText((expandedQuests[quest] and "[-] " or "[+] ") .. quest.name)
+    row.expandBtn:ClearAllPoints()
+    row.expandBtn:SetPoint("TOPLEFT", COL.name.x, -y)
+    row.expandBtn:SetScript("OnClick", function()
+      expandedQuests[quest] = not expandedQuests[quest]
+      FDQ:SelectDungeon(selectedDungeon)
+    end)
+    row.expandBtn:Show()
+  else
+    row.name:SetText(quest.name)
+    row.expandBtn:Hide()
+  end
 
   row.level:ClearAllPoints()
   row.level:SetPoint("TOPLEFT", COL.level.x, -y)
@@ -722,6 +765,27 @@ local function LayoutRow(f, index, y, quest, status)
     height = height + NOTE_HEIGHT
   else
     row.notes:Hide()
+  end
+
+  -- Expanded prereq lines: each shows the prereq's own quest status via
+  -- STATUS_COLOR/STATUS_LABEL (reusing the same "completed"/"active"/
+  -- "missing" keys the main quest table already uses).
+  if quest.prereqs and expandedQuests[quest] and prereqStatuses then
+    for i, entry in ipairs(prereqStatuses) do
+      local fs = GetPrereqLine(f, row, i)
+      fs:ClearAllPoints()
+      fs:SetPoint("TOPLEFT", COL.name.x + 14, -(y + height))
+      fs:SetText("- " .. entry.name .. ": " .. STATUS_COLOR[entry.status] .. STATUS_LABEL[entry.status] .. "|r")
+      fs:Show()
+      height = height + NOTE_HEIGHT
+    end
+    for i = #prereqStatuses + 1, #row.prereqFS do
+      row.prereqFS[i]:Hide()
+    end
+  else
+    for _, fs in ipairs(row.prereqFS) do
+      fs:Hide()
+    end
   end
 
   return height + ROW_GAP
@@ -768,11 +832,15 @@ function FDQ:SelectDungeon(dungeon)
     row.level:Hide()
     row.pickup:Hide()
     row.notes:Hide()
+    row.expandBtn:Hide()
+    for _, fs in ipairs(row.prereqFS) do
+      fs:Hide()
+    end
   end
 
   local y = 0
   for i, entry in ipairs(rows) do
-    y = y + LayoutRow(f, i, y, entry.quest, entry.status)
+    y = y + LayoutRow(f, i, y, entry.quest, entry.status, entry.prereqStatuses)
   end
 
   f.emptyText:SetShown(#rows == 0)
@@ -896,6 +964,9 @@ if EllesmereUI and EllesmereUI.RegisterSkin then
         skin.Font(row.level)
         skin.Font(row.pickup)
         skin.Button(row.waypoint)
+        for _, fs in ipairs(row.prereqFS) do
+          skin.Font(fs)
+        end
       end
     end
   end)

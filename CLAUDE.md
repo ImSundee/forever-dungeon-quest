@@ -302,6 +302,53 @@ table places it between active and completed (below missing/active, above
 completed) so quests actually worth going out of your way for still sort
 first.
 
+### Prerequisite quests: expandable status, not a full chain tracker
+
+Many `notes` in `Data.lua` describe a prerequisite ("Complete X first",
+"Requires Y", "Opens after Z") but not always the *entire* chain (some say
+"chain of 6 quests starting with X" without naming all 6 -- Wowhead's guide
+text doesn't enumerate them, and re-deriving full chains for every dungeon
+quest was out of scope). Rather than leave prereqs as pure free text,
+quests where the note names an **exact, single** prerequisite quest title
+have a `prereqs = { "Quest Name" }` field in `Data.lua` (a list, for
+forward-compatibility, though every current entry has exactly one). Quests
+whose notes only give a chain's starting quest and an unspecified count of
+further steps ("chain of N starting with X") deliberately do *not* get a
+`prereqs` entry -- showing just the first step's status would imply the
+whole chain is done when it might not be.
+
+The prereq quest **doesn't need its own entry in `Data.lua`** to have its
+status checked -- `FDQ:GetPrereqStatus()` (`Core.lua`) matches it by title
+against the same `activeTitles`/`FDQ_DB.completedTitles` lookups every
+other quest uses (see "Quest matching is by title" above), so external
+breadcrumb quests (e.g. `"Badlands Reagent Run"`, `"Raptor Horns"`) resolve
+correctly even with no corresponding dungeon-quest row. `FDQ:BuildReport()`
+attaches `prereqStatuses` (a list of `{name=, status=}`, `status` one of
+`"active"/"completed"/"missing"` -- no `"dungeon-drop"` case, since a
+prereq is by definition something picked up *before* entering) to each
+report row.
+
+In `UI.lua`, a quest with `quest.prereqs` gets a `[+]`/`[-]` prefix on its
+name (ASCII, not a unicode disclosure triangle -- see the font-tofu note
+under "Custom dropdown and scrollbar" above) and an invisible `row.expandBtn`
+overlaid on the name cell (FontStrings can't receive clicks themselves).
+Clicking toggles `expandedQuests[quest]` (module-local, keyed by the quest
+table's own identity since `Data.lua` entries are stable for the session)
+and re-runs `FDQ:SelectDungeon()` to re-layout. When expanded, each prereq
+gets its own indented line below the quest's row (and below its `notes`
+line, if any), reusing `STATUS_COLOR`/`STATUS_LABEL` for consistent
+coloring with the main table. Prereq lines use a lazily-grown per-row pool
+(`row.prereqFS`), unlike the fixed-cell columns, since the count varies
+per quest; `LayoutRow`'s returned height now accounts for however many
+prereq lines are currently shown, so later rows in the table shift down
+correctly, same as the existing `notes`-line height bump.
+
+**Untested**: like the rest of the UI (see "UI shape" above), not yet
+confirmed in-game -- specifically whether the `[+]`/`[-]` click target
+(`row.expandBtn`, sized to the full name-column width) feels natural to
+click versus just clicking directly on the quest name text, and whether
+the extra indented lines read clearly at the table's normal font size.
+
 ### Faction filtering
 
 `UnitFactionGroup("player")` → `"Alliance"` / `"Horde"`. Each quest in
@@ -445,10 +492,17 @@ the v0.3 single-window rework):
       (e.g. `"Paladin only"`, `"Mage only"`, `"Blacksmiths only"`) — the table
       shows them but doesn't cross-check the player's class. Could add a
       `classOnly` field to `Data.lua` and filter/flag it in `Core.lua`.
-- [ ] No handling for **prerequisite chain status** — `notes` is free text
-      describing prereqs, but the table doesn't check whether those
-      prerequisite quests are done. Would need those chain quests added as
-      their own entries to check programmatically.
+- [x] **Single-step prerequisite status** — shipped: quests where a note
+      names one exact prerequisite quest have a `prereqs` field (`Data.lua`)
+      and an expandable `[+]`/`[-]` row in the UI showing that prereq's own
+      status (see "Prerequisite quests" above). Untested in-game like the
+      rest of the UI rework.
+- [ ] No handling for **multi-step prerequisite chains** — several `notes`
+      say "chain of N quests starting with X" without naming steps 2..N
+      (Wowhead's guide text doesn't enumerate them), so those don't get a
+      `prereqs` entry; showing only the first step's status would be
+      misleading about the whole chain. Would need those intermediate
+      quests identified and added as their own trackable entries.
 
 ## Releases
 
