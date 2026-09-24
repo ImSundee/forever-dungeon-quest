@@ -27,14 +27,16 @@
 local ADDON_NAME = "Forever Dungeon Quests"
 
 local STATUS_COLOR = {
-  completed = "|cff808080", -- gray
-  active = "|cff33ff33",    -- green
-  missing = "|cffff4444",   -- red
+  completed = "|cff808080",    -- gray
+  active = "|cff33ff33",       -- green
+  ["dungeon-drop"] = "|cffffcc00", -- yellow
+  missing = "|cffff4444",      -- red
 }
 
 local STATUS_LABEL = {
   completed = "Done",
   active = "In Log",
+  ["dungeon-drop"] = "Dungeon Drop",
   missing = "Missing",
 }
 
@@ -747,7 +749,7 @@ function FDQ:SelectDungeon(dungeon)
   end
 
   local rows = FDQ:BuildReport(dungeon)
-  local order = { missing = 1, active = 2, completed = 3 }
+  local order = { missing = 1, active = 2, ["dungeon-drop"] = 3, completed = 4 }
   table.sort(rows, function(a, b)
     if order[a.status] ~= order[b.status] then
       return order[a.status] < order[b.status]

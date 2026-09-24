@@ -280,6 +280,28 @@ back nil for completed quests, that's the first thing to check; the fallback
 would be a `C_QuestLog.RequestLoadQuestByID` + wait-and-retry loop, or
 accepting an incomplete completed-quest index.
 
+### "Dungeon Drop" status for in-instance drop-starters
+
+Some quests aren't picked up from an NPC or object beforehand at all — they
+start from an item that drops off a mob (or a rare loot) **inside** the
+dungeon itself (e.g. `The Glowing Shard` in Wailing Caverns, dropped by
+Mutanus the Devourer). There's nothing to "go get" ahead of time for these,
+so showing them as `Missing` — the same label used for quests the player
+could go pick up right now but hasn't — was misleading.
+
+`Data.lua` entries for these set `dungeonDrop = true` (only when the drop
+itself happens inside the relevant dungeon — a handful of Wowhead-listed
+drop quests are picked up just *outside* the instance, e.g. `Necklace
+Recovery`/`The Shattered Necklace` outside Uldaman, and those are left as
+ordinary `missing`-capable quests since the player genuinely can go farm
+that drop beforehand). `FDQ:GetQuestStatus()` in `Core.lua` checks this flag
+last, after active/completed, and returns a fourth status value,
+`"dungeon-drop"`, instead of `"missing"`. `UI.lua`'s `STATUS_COLOR`/
+`STATUS_LABEL` render it as yellow "Dungeon Drop", and the row-sort `order`
+table places it between active and completed (below missing/active, above
+completed) so quests actually worth going out of your way for still sort
+first.
+
 ### Faction filtering
 
 `UnitFactionGroup("player")` → `"Alliance"` / `"Horde"`. Each quest in
