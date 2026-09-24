@@ -28,12 +28,31 @@ jobs:
           files: ForeverDungeonQuests-${{ github.ref_name }}.zip
           generate_release_notes: true
 
+  check-curseforge-config:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        # A job-level `if:` can't reference `secrets` directly (GitHub
+        # Actions rejects that at workflow-validation time, on every push
+        # that touches this file - not just tag pushes). Do the presence
+        # check in a shell step instead and pass the result on as a job
+        # output, which *is* usable in another job's `if:`.
+        run: |
+          if [ -n "${{ secrets.CF_API_TOKEN }}" ] && [ -n "${{ vars.CURSEFORGE_PROJECT_ID }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
   publish-curseforge:
+    needs: check-curseforge-config
     runs-on: ubuntu-latest
     # Only attempt this once a CurseForge API token has been added as a repo
     # secret (Settings > Secrets and variables > Actions). Until then this
     # job is skipped rather than failing every release.
-    if: ${{ vars.CURSEFORGE_PROJECT_ID != '' && secrets.CF_API_TOKEN != '' }}
+    if: needs.check-curseforge-config.outputs.configured == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

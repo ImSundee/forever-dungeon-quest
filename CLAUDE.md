@@ -399,10 +399,21 @@ silently, not fail, until both are present — see below):
    project's settings) and add it as a repo **secret**:
    Settings → Secrets and variables → Actions → Secrets → `CF_API_TOKEN`.
 
-The job's `if:` condition checks both `vars.CURSEFORGE_PROJECT_ID` and
-`secrets.CF_API_TOKEN` are non-empty, so tagging a release before this setup
-is done just quietly skips the CurseForge job — the existing GitHub Release
-job is unaffected either way.
+A separate `check-curseforge-config` job checks both `vars.CURSEFORGE_PROJECT_ID`
+and `secrets.CF_API_TOKEN` are non-empty in a shell step and exposes that as
+a job output; `publish-curseforge` gates on that output via `needs:`/`if:`.
+This two-job indirection isn't optional style — GitHub Actions rejects a
+job-level `if:` that references `secrets` directly at **workflow-validation
+time** (`Unrecognized named-value: 'secrets'`), and a validation failure
+surfaces as a failed run on *any* push that touches the workflow file, not
+just tag pushes (that's what happened the first time this job was added —
+two failed 0-job runs showed up on ordinary branch/main pushes; the
+`tags: "v*"` trigger itself was never bypassed, the file just failed to
+validate before the trigger filter was even reached). Keep any future `if:`
+on these jobs off the `secrets` context directly for the same reason — route
+it through a job output instead. So: tagging a release before the
+CurseForge setup above is done just quietly skips the CurseForge job — the
+existing GitHub Release job is unaffected either way.
 
 **Unverified / worth watching on the first real upload**: `packager`
 auto-detects supported game versions from the `## Interface:` line(s) in
