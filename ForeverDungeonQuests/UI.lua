@@ -751,6 +751,81 @@ function FDQ:ToggleUI()
   end
 end
 
+local ALERT_DURATION = 10 -- seconds before the toast auto-dismisses
+local alertFrame
+
+local function CreateEntryAlertFrame()
+  local f = CreateFrame("Frame", "FDQ_EntryAlertFrame", UIParent, "BackdropTemplate")
+  f:SetSize(320, 60)
+  f:SetPoint("TOP", 0, -180)
+  f:SetFrameStrata("HIGH")
+  f:SetBackdrop({
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+  })
+  f:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+  f:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
+  f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+  f.closeButton:SetPoint("TOPRIGHT", 2, 2)
+  f.closeButton:SetScript("OnClick", function() f:Hide() end)
+
+  f.text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  ApplyDefaultFont(f.text)
+  f.text:SetPoint("TOPLEFT", 12, -10)
+  f.text:SetPoint("TOPRIGHT", -20, -10)
+  f.text:SetJustifyH("LEFT")
+  f.text:SetWordWrap(true)
+
+  f.viewButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  f.viewButton:SetSize(90, 20)
+  f.viewButton:SetPoint("BOTTOMRIGHT", -10, 8)
+  f.viewButton:SetText("View quests")
+  ApplyDefaultFont(f.viewButton:GetFontString())
+
+  f:Hide()
+  if skin then
+    skin.Shell(f)
+    skin.CloseButton(f.closeButton)
+    skin.Font(f.text)
+    skin.Button(f.viewButton)
+  end
+  return f
+end
+
+-- Small toast shown on dungeon entry when the player is missing quests for
+-- it, per FDQ_DB.options.entryAlertMode -- distinct from the full window,
+-- which stays opt-in via /fdq (see CLAUDE.md's "planning tool, not popup"
+-- design note). Auto-dismisses after ALERT_DURATION seconds, or sooner if
+-- clicked/closed.
+function FDQ:ShowEntryAlert(dungeon, missingCount)
+  if not alertFrame then
+    alertFrame = CreateEntryAlertFrame()
+  end
+  local f = alertFrame
+
+  f.text:SetText(string.format(
+    "|cff33ff99Forever Dungeon Quests|r\n%d missing quest%s in %s.",
+    missingCount, missingCount == 1 and "" or "s", dungeon.name
+  ))
+
+  f.viewButton:SetScript("OnClick", function()
+    f:Hide()
+    FDQ:ShowMain(dungeon)
+  end)
+
+  f:Show()
+
+  if f.hideTimer then
+    f.hideTimer:Cancel()
+  end
+  f.hideTimer = C_Timer.NewTimer(ALERT_DURATION, function()
+    f:Hide()
+  end)
+end
+
 if EllesmereUI and EllesmereUI.RegisterSkin then
   EllesmereUI.RegisterSkin("ForeverDungeonQuests", function(S)
     skin = S
