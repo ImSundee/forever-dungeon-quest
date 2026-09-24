@@ -52,6 +52,7 @@ ForeverDungeonQuests/
   ForeverDungeonQuests.toc   -- Interface 16001, lists Data/Core/UI/Minimap load order
   Data.lua                   -- FDQ_Dungeons: static quest database (see below)
   Core.lua                   -- FDQ: faction/dungeon detection, quest status logic, slash command
+  Waypoint.lua               -- FDQ:SetQuestWaypoint(): TomTom/native arrow integration
   UI.lua                     -- FDQ:ShowMain()/SelectDungeon()/ToggleUI(): the single window
   Minimap.lua                -- draggable minimap button, calls FDQ:ToggleUI()
 ```
@@ -293,6 +294,54 @@ upper/lower halves). `FDQ:GetCurrentInstanceDungeon()` in `Core.lua` already
 implements this, but as of the current design it is **not wired to any
 event** — see the "planning tool, not popup" decision below.
 
+### Waypoint/arrow integration (TomTom or the client's built-in waypoint)
+
+[`Waypoint.lua`](ForeverDungeonQuests/Waypoint.lua) turns a quest's `coords`
+(the "x, y" percentage strings transcribed from Wowhead, e.g. `"49, 50"`)
+into an on-screen arrow, exposed in `UI.lua` as a small `">"` button on the
+left of any quest row that has coords (see the `COL.waypoint` column).
+`FDQ:GetWaypointProvider()` picks between two providers, in order:
+
+1. **TomTom**, if installed (`TomTom.AddWaypoint` exists) — most players
+   already have it, and its arrow has distance/crazy-arrow extras this addon
+   doesn't try to reimplement.
+2. The client's own **built-in waypoint** (`C_Map.SetUserWaypoint` +
+   `C_SuperTrack.SetSuperTrackedUserWaypoint`) — added to Retail in
+   Battle for Azeroth/Shadowlands, and since Forever runs on the modern
+   Retail client (Interface 16001 — see "Game context" above) this should
+   exist regardless of what other addons the player has, so there's always
+   a fallback with zero third-party dependency. This is *not* the same as
+   TomTom's arrow and doesn't have its route/distance extras, but shows a
+   basic on-screen arrow + world/minimap pin the same way.
+
+**Why the button is gated on `FDQ:IsPlayerInQuestZone(quest)`**: `coords`
+are recorded relative to whatever zone/subzone the quest giver is actually
+in, but this addon has no zone-name → `uiMapID` lookup table (deliberately —
+Forever's Classic-era zones aren't guaranteed to keep Retail's map IDs, and
+building/maintaining that table is more risk than this feature is worth for
+a Beta addon). Instead, `FDQ:SetQuestWaypoint()` always resolves the
+waypoint against `C_Map.GetBestMapForUnit("player")` — i.e. **the player's
+current map** — which is only correct when they're actually standing in the
+quest's zone. `FDQ:IsPlayerInQuestZone()` compares `GetZoneText()`/
+`GetSubZoneText()` against the zone name parsed out of `quest.location`
+(the text before the first comma, e.g. `"Orgrimmar, The Drag"` →
+`"Orgrimmar"`) to gate this. When the button is disabled, hovering it
+explains why (wrong zone, or no provider installed) via `GameTooltip`.
+
+**Unverified** (no beta access from this dev environment, written directly
+against TomTom's documented API and Blizzard's `C_Map`/`C_SuperTrack` API):
+- That `TomTom:AddWaypoint(uiMapID, x, y, opts)` still matches its current
+  release's signature.
+- That `C_SuperTrack.SetSuperTrackedUserWaypoint(true)` actually surfaces
+  the on-screen arrow on Forever's client the way it does on live Retail.
+- The zone-name parsing/matching in `GetQuestZoneName`/`IsPlayerInQuestZone`
+  against real `GetZoneText()`/`GetSubZoneText()` values — `Data.lua`'s
+  `location` strings were transcribed from Wowhead prose, not validated
+  against actual in-game zone/subzone text, so a mismatch (e.g. capitalization,
+  or Wowhead naming a subzone the client reports differently) would silently
+  leave the button disabled with a "travel to X" tooltip that's actually
+  wrong. Worth checking against a few real zones once testable.
+
 ### UI flow: planning tool, not an in-instance popup
 
 Original v0.1 design auto-popped a report window on `PLAYER_ENTERING_WORLD`
@@ -340,6 +389,13 @@ the v0.3 single-window rework):
       testing) fills them in.
 - [ ] Consider re-scraping the Wowhead page closer to 2026-11-04 launch in
       case quest data changes during Beta.
+- [ ] **Waypoint integration (`Waypoint.lua`) is untested in-game** — see the
+      "Waypoint/arrow integration" section above for the specific unverified
+      pieces (TomTom's `AddWaypoint` signature, whether
+      `C_SuperTrack.SetSuperTrackedUserWaypoint` actually shows an arrow on
+      this client, and whether the zone-name matching in
+      `IsPlayerInQuestZone` lines up with real `GetZoneText()`/
+      `GetSubZoneText()` values for the zones in `Data.lua`).
 - [ ] No handling yet for **class-restricted** quests beyond a free-text note
       (e.g. `"Paladin only"`, `"Mage only"`, `"Blacksmiths only"`) — the table
       shows them but doesn't cross-check the player's class. Could add a
