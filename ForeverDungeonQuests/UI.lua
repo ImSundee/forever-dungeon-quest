@@ -13,6 +13,7 @@ local STATUS_LABEL = {
 }
 
 local frame
+local listFrame
 
 local function CreateFrame_FDQ()
   local f = CreateFrame("Frame", "FDQ_ReportFrame", UIParent, "BackdropTemplate")
@@ -39,6 +40,15 @@ local function CreateFrame_FDQ()
   f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   f.closeButton:SetPoint("TOPRIGHT", -4, -4)
 
+  f.backButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  f.backButton:SetSize(90, 22)
+  f.backButton:SetPoint("TOPLEFT", 14, -14)
+  f.backButton:SetText("< Dungeons")
+  f.backButton:SetScript("OnClick", function()
+    f:Hide()
+    FDQ:ShowDungeonList()
+  end)
+
   f.scroll = CreateFrame("ScrollFrame", "FDQ_ReportScroll", f, "UIPanelScrollFrameTemplate")
   f.scroll:SetPoint("TOPLEFT", 16, -70)
   f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
@@ -48,6 +58,47 @@ local function CreateFrame_FDQ()
   f.scroll:SetScrollChild(f.content)
 
   f.lines = {}
+
+  f:Hide()
+  return f
+end
+
+local function CreateListFrame_FDQ()
+  local f = CreateFrame("Frame", "FDQ_ListFrame", UIParent, "BackdropTemplate")
+  f:SetSize(320, 480)
+  f:SetPoint("CENTER")
+  f:SetMovable(true)
+  f:EnableMouse(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving)
+  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetBackdrop({
+    bgFile = "Interface/DialogFrame/UI-DialogBox-Background",
+    edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+    tile = true, tileSize = 32, edgeSize = 32,
+    insets = { left = 11, right = 12, top = 12, bottom = 11 },
+  })
+
+  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  f.title:SetPoint("TOP", 0, -16)
+  f.title:SetText("Choose a Dungeon")
+
+  f.subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.subtitle:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
+  f.subtitle:SetText("Check quests before you queue or travel.")
+
+  f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+  f.closeButton:SetPoint("TOPRIGHT", -4, -4)
+
+  f.scroll = CreateFrame("ScrollFrame", "FDQ_ListScroll", f, "UIPanelScrollFrameTemplate")
+  f.scroll:SetPoint("TOPLEFT", 16, -60)
+  f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
+
+  f.content = CreateFrame("Frame", nil, f.scroll)
+  f.content:SetSize(1, 1)
+  f.scroll:SetScrollChild(f.content)
+
+  f.buttons = {}
 
   f:Hide()
   return f
@@ -67,9 +118,67 @@ local function GetLine(f, index)
   return line
 end
 
+-- The dungeon picker: the normal entry point via `/fdq` with no arguments.
+-- Meant to be checked before queueing/traveling, not just while inside.
+function FDQ:ShowDungeonList()
+  if not listFrame then
+    listFrame = CreateListFrame_FDQ()
+  end
+
+  if frame then
+    frame:Hide()
+  end
+
+  local sorted = {}
+  for _, dungeon in ipairs(FDQ_Dungeons) do
+    table.insert(sorted, dungeon)
+  end
+  table.sort(sorted, function(a, b)
+    local levelA = (a.levels and a.levels.atLevel) or 0
+    local levelB = (b.levels and b.levels.atLevel) or 0
+    if levelA ~= levelB then
+      return levelA < levelB
+    end
+    return a.name < b.name
+  end)
+
+  for _, button in pairs(listFrame.buttons) do
+    button:Hide()
+  end
+
+  for i, dungeon in ipairs(sorted) do
+    local button = listFrame.buttons[i]
+    if not button then
+      button = CreateFrame("Button", nil, listFrame.content, "UIPanelButtonTemplate")
+      button:SetSize(270, 24)
+      button:SetPoint("TOPLEFT", 2, -((i - 1) * 28) - 2)
+      listFrame.buttons[i] = button
+    end
+
+    local atLevel = dungeon.levels and dungeon.levels.atLevel
+    local label = dungeon.name
+    if atLevel then
+      label = label .. "  |cffaaaaaa(lvl " .. atLevel .. ")|r"
+    end
+    button:SetText(label)
+    button:SetScript("OnClick", function()
+      listFrame:Hide()
+      FDQ:OpenDungeonReport(dungeon)
+    end)
+    button:Show()
+  end
+
+  listFrame.content:SetHeight(math.max(1, #sorted * 28))
+  listFrame:Show()
+end
+
 function FDQ:ShowReport(dungeon, rows)
   if not frame then
     frame = CreateFrame_FDQ()
+  end
+
+  if listFrame then
+    listFrame:Hide()
   end
 
   frame.title:SetText(dungeon.name)

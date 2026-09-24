@@ -2,8 +2,9 @@
 
 A World of Warcraft: Forever addon that shows you which dungeon quests you
 already have, which ones you're missing (and where to pick them up), and
-which ones you've already completed — filtered to your faction — right when
-you step into a dungeon.
+which ones you've already completed — filtered to your faction. It's built
+for **planning ahead**: check a dungeon's quest list before you queue or
+travel there, not just after you're already standing in it.
 
 ## Installation
 
@@ -20,19 +21,25 @@ you step into a dungeon.
 
 ## How to use it
 
-**It opens itself.** Walk into a supported dungeon and the report window
-pops up automatically, showing the quests relevant to your faction.
-
-You can also open it manually with a slash command:
+Type `/fdq` any time, anywhere — you don't need to be inside a dungeon, or
+even near one. That opens a **dungeon picker window** listing every
+supported dungeon (sorted by level). Click one to see its quest report.
 
 | Command | What it does |
 |---|---|
-| `/fdq` | Shows the report for the dungeon you're currently standing in. |
-| `/fdq <dungeon name>` | Looks up any dungeon by name, even if you're not inside it — e.g. `/fdq deadmines`, `/fdq scarlet` (partial names work). |
+| `/fdq` | Opens the dungeon picker window. |
+| `/fdq <dungeon name>` | Skips the picker and jumps straight to a dungeon's report by name — e.g. `/fdq deadmines`, `/fdq scarlet` (partial names work). |
 | `/fdq scan` | Forces a rescan of your completed quests. Normally happens automatically; use this if the report looks stale. |
 
 If your dungeon-name search matches more than one dungeon, the addon will
-list the matches so you can be more specific.
+list the matches in chat so you can be more specific. From the quest report
+window, use the **"< Dungeons"** button in the top-left to go back to the
+picker.
+
+> **Not implemented yet:** an automatic pop-up warning when you enter a
+> dungeon with missing quests. Right now the addon is purely something you
+> check on your own before heading in — see the Roadmap in
+> [CLAUDE.md](CLAUDE.md) if you're interested in what's planned.
 
 ## Reading the report
 

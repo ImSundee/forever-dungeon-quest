@@ -87,7 +87,37 @@ shows the player's own faction plus `"Neutral"` entries.
 `IsInInstance()` + `GetInstanceInfo()` gives the current instance name, matched
 against each dungeon's `aliases` list in `Data.lua` (handles cases like Dire
 Maul's three wings sharing one instance name, or Blackrock Spire's
-upper/lower halves).
+upper/lower halves). `FDQ:GetCurrentInstanceDungeon()` in `Core.lua` already
+implements this, but as of the current design it is **not wired to any
+event** — see the "planning tool, not popup" decision below.
+
+### UI flow: planning tool, not an in-instance popup
+
+Original v0.1 design auto-popped the report on `PLAYER_ENTERING_WORLD` when
+inside a dungeon. That was changed on purpose: the addon's primary job is to
+let players check a dungeon's quest list **before** queueing/traveling, not
+just after they're standing inside it. Current flow:
+
+- `/fdq` with no args → `FDQ:ShowDungeonList()` (`UI.lua`) opens a picker
+  frame listing every dungeon in `FDQ_Dungeons`, sorted by level. Clicking one
+  calls `FDQ:OpenDungeonReport(dungeon)`.
+- `/fdq <name>` → skips the picker, fuzzy-matches by name, opens the report
+  directly.
+- The report frame has a "< Dungeons" button (top-left) that re-opens the
+  picker.
+- Nothing auto-opens on zone change right now. `GetCurrentInstanceDungeon`/
+  `FindDungeonByZoneName` are kept in `Core.lua` specifically because a
+  **future** "you have missing quests" warning-on-entry feature (a small
+  alert bar, not the full report) will need them — see Roadmap below.
+
+## Roadmap
+
+- [ ] **Entry warning bar** (explicitly deferred, not v0.1): a small
+      unobtrusive bar/toast when entering a dungeon with missing quests,
+      distinct from the full picker/report UI. Would reuse
+      `GetCurrentInstanceDungeon()` + `BuildReport()`, hooked to
+      `PLAYER_ENTERING_WORLD`.
+- [ ] Minimap button / options panel — currently `/fdq` slash command only.
 
 ## Known gaps / next steps
 
@@ -101,9 +131,6 @@ upper/lower halves).
       without a "this addon is out of date" warning.
 - [ ] Fill in the `TBD` quest givers in Ruins of Lordaeron once Wowhead (or
       testing) fills them in.
-- [ ] No minimap button / options panel yet — currently `/fdq` slash command
-      only (`/fdq` = report for current dungeon, `/fdq <name>` = fuzzy lookup,
-      `/fdq scan` = force-rebuild the completed-quest index).
 - [ ] Consider re-scraping the Wowhead page closer to 2026-11-04 launch in
       case quest data changes during Beta.
 - [ ] No handling yet for **class-restricted** quests beyond a free-text note

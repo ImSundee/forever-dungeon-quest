@@ -119,9 +119,15 @@ function FDQ:BuildReport(dungeon)
   return rows
 end
 
+function FDQ:OpenDungeonReport(dungeon)
+  local rows = FDQ:BuildReport(dungeon)
+  FDQ:ShowReport(dungeon, rows)
+end
+
 -- Slash command: /fdq [dungeon name]
--- No argument: report for the dungeon you're currently inside.
--- With argument: fuzzy-matches dungeon name.
+-- No argument: opens a dungeon picker UI -- this is meant to be checked
+-- *before* you queue/travel, not just while standing inside one.
+-- With argument: fuzzy-matches dungeon name and jumps straight to its report.
 SLASH_FDQ1 = "/fdq"
 SlashCmdList["FDQ"] = function(msg)
   msg = msg and msg:trim() or ""
@@ -132,40 +138,29 @@ SlashCmdList["FDQ"] = function(msg)
     return
   end
 
-  local dungeon
   if msg == "" then
-    dungeon = FDQ:GetCurrentInstanceDungeon()
-    if not dungeon then
-      print("|cff33ff99Forever Dungeon Quests|r: not inside a dungeon. Use /fdq <dungeon name> to look one up.")
-      return
-    end
-  else
-    local matches = FDQ:FindDungeonsByPartialName(msg)
-    if #matches == 0 then
-      print("|cff33ff99Forever Dungeon Quests|r: no dungeon matches \"" .. msg .. "\".")
-      return
-    elseif #matches > 1 then
-      print("|cff33ff99Forever Dungeon Quests|r: multiple matches, be more specific:")
-      for _, d in ipairs(matches) do
-        print("  - " .. d.name)
-      end
-      return
-    end
-    dungeon = matches[1]
+    FDQ:ShowDungeonList()
+    return
   end
 
-  local rows = FDQ:BuildReport(dungeon)
-  FDQ:ShowReport(dungeon, rows)
+  local matches = FDQ:FindDungeonsByPartialName(msg)
+  if #matches == 0 then
+    print("|cff33ff99Forever Dungeon Quests|r: no dungeon matches \"" .. msg .. "\".")
+    return
+  elseif #matches > 1 then
+    print("|cff33ff99Forever Dungeon Quests|r: multiple matches, be more specific:")
+    for _, d in ipairs(matches) do
+      print("  - " .. d.name)
+    end
+    return
+  end
+
+  FDQ:OpenDungeonReport(matches[1])
 end
 
-local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-eventFrame:SetScript("OnEvent", function(_, event)
-  if event == "PLAYER_ENTERING_WORLD" then
-    local dungeon = FDQ:GetCurrentInstanceDungeon()
-    if dungeon then
-      local rows = FDQ:BuildReport(dungeon)
-      FDQ:ShowReport(dungeon, rows)
-    end
-  end
-end)
+-- NOTE: no auto-popup-on-zone-enter yet. `GetCurrentInstanceDungeon` and
+-- `FindDungeonByZoneName` above are already what a future "you have
+-- uncompleted quests" warning-on-entry feature would use -- see CLAUDE.md
+-- TODOs. Deliberately not wired to PLAYER_ENTERING_WORLD right now: the
+-- addon's job today is pre-dungeon planning via the /fdq picker, not an
+-- in-instance popup.
