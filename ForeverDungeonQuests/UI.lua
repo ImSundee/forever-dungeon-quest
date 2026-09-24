@@ -1,16 +1,28 @@
--- Forever Dungeon Quests: report + picker windows
+-- Forever Dungeon Quests: single-window UI
+--
+-- One window: a left-hand sidebar listing dungeons (filterable by level
+-- bracket) and a right-hand quest table for whichever dungeon is selected.
+-- Replaces the earlier two-window (picker + report) design.
 --
 -- Visual integration with EllesmereUI (a third-party UI-replacement addon,
 -- github.com/EllesmereGaming/EllesmereUI): if the user has it installed and
 -- has skinning enabled for this addon, EllesmereUI.RegisterSkin below hands
 -- our frames to its Skins module (`S`) so borders, buttons, scrollbars, and
 -- fonts match the user's own theme/font choice instead of stock Blizzard art.
--- Without EllesmereUI installed, frames fall back to a plain flat panel
--- rather than the ornate gold-trimmed dialog box template.
+-- Without EllesmereUI installed, frames fall back to a plain flat panel.
 --
 -- NOTE: written against EllesmereUI's documented SKINNING_API.md (apiVersion
 -- 1). Not yet verified against a live client with EllesmereUI actually
 -- installed -- see CLAUDE.md.
+--
+-- Default font/accent color: text defaults to real Expressway if something
+-- on the system already provides it (LibSharedMedia, or EllesmereUI's own
+-- bundled copy), otherwise to Overpass, an OFL-licensed lookalike bundled
+-- in Fonts/ (see FONT_PATH below for the full chain). The dropdown's
+-- selected-row swatch prefers EllesmereUI's own live accent color
+-- (GetAccentColor()) over our static ACCENT_COLOR guess when EUI is
+-- present. Both are best-effort "match EllesmereUI's own defaults" per
+-- user request, not hard dependencies.
 
 local ADDON_NAME = "Forever Dungeon Quests"
 
@@ -26,14 +38,130 @@ local STATUS_LABEL = {
   missing = "Missing",
 }
 
-local frame
-local listFrame
+-- A plain 8x8 all-white texture bundled with the client, used everywhere
+-- below as a solid-color fill/border instead of any Blizzard-themed art
+-- (dropdown box, its menu, scrollbar thumb).
+local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
+
+-- Fallback accent color for the dropdown menu's selected-row indicator
+-- square (used when EllesmereUI isn't present to supply a live one --
+-- see GetAccentColor below), modeled after the clean flat look of
+-- Blizzard's own Edit Mode settings dropdowns.
+local ACCENT_COLOR = { 0.85, 0.55, 0.25 }
+
+-- Default font. Preference order:
+--   1. LibSharedMedia-3.0, if some other addon has registered "Expressway"
+--      with it -- someone else's real Expressway, not ours to redistribute.
+--   2. EllesmereUI's own bundled copy of Expressway, by path -- if
+--      EllesmereUI is installed, this file already exists on disk; we're
+--      just pointing at it, the same way LibSharedMedia itself works under
+--      the hood. Still not something we ship ourselves.
+--   3. Our own bundled font, Fonts/Overpass-Regular.ttf -- Overpass is
+--      licensed under the SIL Open Font License (see Fonts/LICENSE.md),
+--      which explicitly permits bundling/redistributing with other
+--      software (OFL 1.1, condition 2), unlike Expressway's proprietary
+--      EULA. It's a deliberate lookalike: Overpass is an open-source
+--      interpretation of the same U.S. "Highway Gothic" (FHWA Series)
+--      letterforms that Expressway itself is based on, so it's a close
+--      visual match without any licensing risk. This is the guaranteed
+--      fallback -- always available, no other addon required.
+local FONT_CANDIDATES = {
+  "Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway.TTF",
+}
+local BUNDLED_FONT = "Interface\\AddOns\\ForeverDungeonQuests\\Fonts\\Overpass-Regular.ttf"
+
+local FONT_PATH
+local FONT_SOURCE -- for the debug print below
+do
+  local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+  if LSM then
+    FONT_PATH = LSM:Fetch("font", "Expressway", true)
+    if FONT_PATH then
+      FONT_SOURCE = "LibSharedMedia"
+    end
+  end
+  if not FONT_PATH and EllesmereUI then
+    FONT_PATH = FONT_CANDIDATES[1]
+    FONT_SOURCE = "EllesmereUI path guess"
+  end
+  if not FONT_PATH then
+    FONT_PATH = BUNDLED_FONT
+    FONT_SOURCE = "bundled Overpass (OFL)"
+  end
+end
+
+-- Set true the first time ApplyDefaultFont finds FONT_PATH doesn't
+-- actually work (e.g. EllesmereUI global existed but the file path guess
+-- was wrong) -- stops retrying a broken path on every single FontString.
+local fontPathFailed = false
+local fontDebugPrinted = false
+
+-- One-shot diagnostic so we can tell exactly where this is failing instead
+-- of guessing blindly -- remove once the font situation is confirmed
+-- working (or not) in-game. See CLAUDE.md.
+local function PrintFontDebug(setFontOk)
+  if fontDebugPrinted then return end
+  fontDebugPrinted = true
+  print(string.format(
+    "|cff33ff99Forever Dungeon Quests|r font debug: LibStub=%s FONT_PATH=%s (source=%s) SetFont ok=%s",
+    tostring(LibStub ~= nil), tostring(FONT_PATH), tostring(FONT_SOURCE), tostring(setFontOk)
+  ))
+end
+
+-- Swaps a FontString's typeface to FONT_PATH while keeping whatever size/
+-- outline flags it already has from its template. No-op if FONT_PATH
+-- wasn't found or turned out not to work (see above).
+local function ApplyDefaultFont(fontString)
+  if not FONT_PATH or fontPathFailed then
+    PrintFontDebug(nil)
+    return
+  end
+  local _, size, flags = fontString:GetFont()
+  if not size then return end
+  local ok = fontString:SetFont(FONT_PATH, size, flags)
+  PrintFontDebug(ok)
+  if not ok then
+    fontPathFailed = true
+  end
+end
+
+-- Column layout for the quest table (x-offset, width) within the right
+-- panel's content frame.
+local COL = {
+  status  = { x = 0,   w = 50 },
+  name    = { x = 54,  w = 150 },
+  level   = { x = 208, w = 30 },
+  pickup  = { x = 242, w = 400 },
+}
+local ROW_HEIGHT = 16
+local NOTE_HEIGHT = 14
+local ROW_GAP = 6
+
+-- Level-bracket filter for the sidebar dungeon list, so it only shows a
+-- handful of dungeons at a time instead of the full list. Wider brackets
+-- (20 levels) suit the single-window layout better than the original
+-- picker's 10-level brackets did -- there's more room, and fewer dropdown
+-- entries to click through.
+local BRACKET_SIZE = 20
+local selectedBracketMin -- nil until first ShowMain call, then sticky for the session
+local selectedDungeon    -- the dungeon currently shown in the right-hand table
+
+local mainFrame
 local skin -- set by EllesmereUI.RegisterSkin's callback, nil if EUI isn't present/enabled
 
--- Level-bracket filter for the dungeon picker grid, so it only shows a
--- handful of dungeons at a time instead of the full list.
-local BRACKET_SIZE = 10
-local selectedBracketMin -- nil until first ShowDungeonList call, then sticky for the session
+-- Prefers EllesmereUI's own live accent color (so this addon's swatches
+-- match whatever the user actually has EllesmereUI set to) over our own
+-- static ACCENT_COLOR guess. Per-call rather than cached, since EUI's
+-- getters are documented as "don't cache across sessions/long lifetimes."
+local function GetAccentColor()
+  if skin and skin.GetAccentColor then
+    local r, g, b = skin.GetAccentColor()
+    if r then
+      return r, g, b
+    end
+  end
+  return ACCENT_COLOR[1], ACCENT_COLOR[2], ACCENT_COLOR[3]
+end
 
 local function GetDungeonBracket(dungeon)
   local atLevel = (dungeon.levels and dungeon.levels.atLevel) or 1
@@ -73,22 +201,164 @@ local function BracketLabel(bracketMin)
   return bracketMin .. "-" .. (bracketMin + BRACKET_SIZE - 1)
 end
 
-local function LevelDropdown_Initialize(dropdown, level)
-  for _, bracketMin in ipairs(GetAvailableBrackets()) do
-    local info = UIDropDownMenu_CreateInfo()
-    info.text = BracketLabel(bracketMin)
-    info.value = bracketMin
-    info.checked = (bracketMin == selectedBracketMin)
-    info.func = function(self)
-      selectedBracketMin = self.value
-      FDQ:ShowDungeonList()
+-- A flat, hand-rolled dropdown: no Blizzard UIDropDownMenuTemplate art (the
+-- brown-bordered box with the round arrow button). Just a plain bordered
+-- box, a white text-glyph arrow, and a small flat popout list -- avoids
+-- touching Blizzard's shared global DropDownList frames entirely.
+local function CreateCleanDropdown(parent, width)
+  local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  dd:SetSize(width, 24)
+  dd:SetBackdrop({
+    bgFile = WHITE_TEXTURE,
+    edgeFile = WHITE_TEXTURE,
+    edgeSize = 1,
+  })
+  dd:SetBackdropColor(0.08, 0.08, 0.08, 1)
+  dd:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
+  dd.text = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  ApplyDefaultFont(dd.text)
+  dd.text:SetPoint("LEFT", 8, 0)
+  dd.text:SetPoint("RIGHT", -20, 0)
+  dd.text:SetJustifyH("LEFT")
+  dd.text:SetWordWrap(false)
+
+  dd.arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(dd.arrow)
+  dd.arrow:SetPoint("RIGHT", -6, 0)
+  dd.arrow:SetTextColor(1, 1, 1)
+  dd.arrow:SetText("v") -- ASCII caret, not a unicode triangle -- see CLAUDE.md for why
+
+  dd.menu = CreateFrame("Frame", nil, dd, "BackdropTemplate")
+  dd.menu:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -2)
+  dd.menu:SetWidth(width)
+  dd.menu:SetBackdrop({
+    bgFile = WHITE_TEXTURE,
+    edgeFile = WHITE_TEXTURE,
+    edgeSize = 1,
+  })
+  dd.menu:SetBackdropColor(0.08, 0.08, 0.08, 0.98)
+  dd.menu:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+  dd.menu:SetFrameStrata("DIALOG")
+  dd.menu:Hide()
+  dd.menuButtons = {}
+
+  dd:SetScript("OnClick", function()
+    dd.menu:SetShown(not dd.menu:IsShown())
+  end)
+
+  -- `options` is a list of {text=, value=}; `onSelect(value)` fires when one
+  -- is clicked (the menu also closes itself first).
+  function dd:SetOptions(options, selectedValue, onSelect)
+    for _, btn in ipairs(dd.menuButtons) do
+      btn:Hide()
     end
-    UIDropDownMenu_AddButton(info, level)
+
+    for i, opt in ipairs(options) do
+      local btn = dd.menuButtons[i]
+      if not btn then
+        btn = CreateFrame("Button", nil, dd.menu)
+        btn:SetHeight(20)
+        local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints()
+        highlight:SetTexture(WHITE_TEXTURE)
+        highlight:SetVertexColor(1, 1, 1, 0.06)
+
+        -- Small colored swatch instead of a full-row highlight for the
+        -- selected item, similar to Blizzard's own Edit Mode dropdowns.
+        btn.swatch = CreateFrame("Frame", nil, btn, "BackdropTemplate")
+        btn.swatch:SetSize(12, 12)
+        btn.swatch:SetPoint("LEFT", 6, 0)
+        btn.swatch:SetBackdrop({ bgFile = WHITE_TEXTURE, edgeFile = WHITE_TEXTURE, edgeSize = 1 })
+        btn.swatch:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+
+        btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        ApplyDefaultFont(btn.label)
+        btn.label:SetPoint("LEFT", btn.swatch, "RIGHT", 6, 0)
+
+        -- Thin divider under each row instead of relying on hover
+        -- highlighting alone to separate options.
+        btn.divider = dd.menu:CreateTexture(nil, "ARTWORK")
+        btn.divider:SetColorTexture(1, 1, 1, 0.08)
+        btn.divider:SetHeight(1)
+
+        dd.menuButtons[i] = btn
+      end
+      btn:ClearAllPoints()
+      btn:SetPoint("TOPLEFT", 2, -((i - 1) * 20) - 2)
+      btn:SetPoint("RIGHT", dd.menu, "RIGHT", -2, 0)
+      btn.label:SetText(opt.text)
+
+      if opt.value == selectedValue then
+        local r, g, b = GetAccentColor()
+        btn.swatch:SetBackdropColor(r, g, b, 1)
+      else
+        btn.swatch:SetBackdropColor(0, 0, 0, 0.4)
+      end
+
+      btn.divider:ClearAllPoints()
+      btn.divider:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 4, 0)
+      btn.divider:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -4, 0)
+      btn.divider:Show()
+
+      btn:SetScript("OnClick", function()
+        dd.menu:Hide()
+        onSelect(opt.value)
+      end)
+      btn:Show()
+    end
+
+    -- No divider under the last row -- it already sits on the menu's edge.
+    if dd.menuButtons[#options] then
+      dd.menuButtons[#options].divider:Hide()
+    end
+
+    dd.menu:SetHeight(#options * 20 + 4)
+
+    for _, opt in ipairs(options) do
+      if opt.value == selectedValue then
+        dd.text:SetText(opt.text)
+        break
+      end
+    end
+  end
+
+  return dd
+end
+
+-- Reskins a ScrollFrame's ScrollBar (from UIPanelScrollFrameTemplate) to
+-- just a clean thumb/track -- no up/down arrow buttons at all, per feedback
+-- that even a reskinned arrow was noisier than needed. Defensive about
+-- which pieces actually exist, since this is a legacy Slider-based
+-- ScrollBar and its structure isn't guaranteed identical across clients.
+local function CleanScrollBar(scrollBar)
+  if not scrollBar then return end
+
+  local name = scrollBar.GetName and scrollBar:GetName()
+  local up = scrollBar.ScrollUpButton or (name and _G[name .. "ScrollUpButton"])
+  local down = scrollBar.ScrollDownButton or (name and _G[name .. "ScrollDownButton"])
+
+  -- Explicit checks rather than iterating {up, down}: if `up` is nil,
+  -- ipairs() over a table built from {up, down} stops at index 1 and never
+  -- reaches `down`, since Lua's # operator/ipairs are unreliable with holes.
+  if up then
+    up:Hide()
+    up:EnableMouse(false)
+  end
+  if down then
+    down:Hide()
+    down:EnableMouse(false)
+  end
+
+  local thumb = scrollBar.GetThumbTexture and scrollBar:GetThumbTexture()
+  if thumb then
+    thumb:SetColorTexture(1, 1, 1, 0.3)
+    thumb:SetWidth(4)
   end
 end
 
 -- Applies the shared chrome (shell backdrop, close button, brand/title/subtitle
--- fonts) to a window frame. Safe to call whether or not `skin` is set.
+-- fonts) to the window. Safe to call whether or not `skin` is set.
 local function SkinWindowChrome(f)
   if not skin then return end
   skin.Shell(f)
@@ -96,17 +366,17 @@ local function SkinWindowChrome(f)
   skin.Font(f.brand)
   skin.Font(f.title)
   skin.Font(f.subtitle)
-  if f.backButton then
-    skin.Button(f.backButton)
+  if f.sidebarScroll and f.sidebarScroll.ScrollBar then
+    skin.ScrollBar(f.sidebarScroll.ScrollBar)
   end
-  if f.scroll and f.scroll.ScrollBar then
-    skin.ScrollBar(f.scroll.ScrollBar)
+  if f.tableScroll and f.tableScroll.ScrollBar then
+    skin.ScrollBar(f.tableScroll.ScrollBar)
   end
 end
 
-local function CreateWindowBase(name, width, height)
-  local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
-  f:SetSize(width, height)
+local function CreateMainFrame()
+  local f = CreateFrame("Frame", "FDQ_MainFrame", UIParent, "BackdropTemplate")
+  f:SetSize(900, 540)
   f:SetPoint("CENTER")
   f:SetMovable(true)
   f:EnableMouse(true)
@@ -126,114 +396,156 @@ local function CreateWindowBase(name, width, height)
   f:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
 
   f.brand = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(f.brand)
   f.brand:SetPoint("TOP", 0, -10)
   f.brand:SetText(ADDON_NAME)
   f.brand:SetTextColor(0.6, 0.6, 0.6)
 
-  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  ApplyDefaultFont(f.title)
   f.title:SetPoint("TOP", f.brand, "BOTTOM", 0, -6)
-  f.title:SetTextColor(1, 1, 1)
+  f.title:SetText("Dungeon Quests")
 
   f.subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(f.subtitle)
   f.subtitle:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
+  f.subtitle:SetText("Pick a dungeon on the left to check its quests.")
 
   f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   f.closeButton:SetPoint("TOPRIGHT", -4, -4)
 
+  -- Sidebar: level filter + dungeon list.
+  f.sidebar = CreateFrame("Frame", nil, f)
+  f.sidebar:SetPoint("TOPLEFT", 16, -80)
+  f.sidebar:SetPoint("BOTTOMLEFT", 16, 16)
+  f.sidebar:SetWidth(190)
+
+  f.levelDropdown = CreateCleanDropdown(f.sidebar, 170)
+  f.levelDropdown:SetPoint("TOPLEFT", 0, 0)
+
+  f.sidebarScroll = CreateFrame("ScrollFrame", "FDQ_SidebarScroll", f.sidebar, "UIPanelScrollFrameTemplate")
+  f.sidebarScroll:SetPoint("TOPLEFT", 0, -36)
+  f.sidebarScroll:SetPoint("BOTTOMRIGHT", -18, 0)
+  CleanScrollBar(f.sidebarScroll.ScrollBar)
+
+  f.sidebarContent = CreateFrame("Frame", nil, f.sidebarScroll)
+  f.sidebarContent:SetSize(1, 1)
+  f.sidebarScroll:SetScrollChild(f.sidebarContent)
+
+  f.sidebarButtons = {}
+
+  -- Vertical divider between sidebar and the quest table.
+  f.divider = f:CreateTexture(nil, "ARTWORK")
+  f.divider:SetPoint("TOPLEFT", f.sidebar, "TOPRIGHT", 8, 8)
+  f.divider:SetPoint("BOTTOMLEFT", f.sidebar, "BOTTOMRIGHT", 8, 0)
+  f.divider:SetWidth(1)
+  f.divider:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+
+  -- Right panel: dungeon header + quest table.
+  f.rightPanel = CreateFrame("Frame", nil, f)
+  f.rightPanel:SetPoint("TOPLEFT", f.divider, "TOPRIGHT", 8, 0)
+  f.rightPanel:SetPoint("BOTTOMRIGHT", -16, 16)
+
+  f.dungeonName = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  ApplyDefaultFont(f.dungeonName)
+  f.dungeonName:SetPoint("TOPLEFT", 0, 0)
+
+  f.dungeonMeta = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(f.dungeonMeta)
+  f.dungeonMeta:SetPoint("TOPLEFT", f.dungeonName, "BOTTOMLEFT", 0, -4)
+  f.dungeonMeta:SetJustifyH("LEFT")
+  f.dungeonMeta:SetWidth(640)
+
+  f.dungeonNote = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  ApplyDefaultFont(f.dungeonNote)
+  f.dungeonNote:SetPoint("TOPLEFT", f.dungeonMeta, "BOTTOMLEFT", 0, -4)
+  f.dungeonNote:SetJustifyH("LEFT")
+  f.dungeonNote:SetWidth(640)
+  f.dungeonNote:SetWordWrap(true)
+
+  -- Column headers for the quest table.
+  f.colHeaders = CreateFrame("Frame", nil, f.rightPanel)
+  f.colHeaders:SetPoint("TOPLEFT", f.dungeonNote, "BOTTOMLEFT", 0, -10)
+  f.colHeaders:SetSize(640, 14)
+
+  local function MakeHeader(col, text)
+    local fs = f.colHeaders:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    ApplyDefaultFont(fs)
+    fs:SetPoint("TOPLEFT", col.x, 0)
+    fs:SetWidth(col.w)
+    fs:SetJustifyH("LEFT")
+    fs:SetText(text)
+    return fs
+  end
+  f.headerStatus = MakeHeader(COL.status, "Status")
+  f.headerName = MakeHeader(COL.name, "Quest")
+  f.headerLevel = MakeHeader(COL.level, "Lvl")
+  f.headerPickup = MakeHeader(COL.pickup, "Pickup")
+
+  f.headerRule = f.rightPanel:CreateTexture(nil, "ARTWORK")
+  f.headerRule:SetPoint("TOPLEFT", f.colHeaders, "BOTTOMLEFT", 0, -2)
+  f.headerRule:SetPoint("TOPRIGHT", f.colHeaders, "BOTTOMRIGHT", 0, -2)
+  f.headerRule:SetHeight(1)
+  f.headerRule:SetColorTexture(0.4, 0.4, 0.4, 0.6)
+
+  f.tableScroll = CreateFrame("ScrollFrame", "FDQ_TableScroll", f.rightPanel, "UIPanelScrollFrameTemplate")
+  f.tableScroll:SetPoint("TOPLEFT", f.headerRule, "BOTTOMLEFT", 0, -6)
+  f.tableScroll:SetPoint("BOTTOMRIGHT", 0, 0)
+  CleanScrollBar(f.tableScroll.ScrollBar)
+
+  f.tableContent = CreateFrame("Frame", nil, f.tableScroll)
+  f.tableContent:SetSize(1, 1)
+  f.tableScroll:SetScrollChild(f.tableContent)
+  f.tableScroll:SetScript("OnSizeChanged", function(_, width)
+    f.tableContent:SetWidth(width)
+  end)
+
+  f.emptyText = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  ApplyDefaultFont(f.emptyText)
+  f.emptyText:SetPoint("TOPLEFT", 4, -4)
+  f.emptyText:SetText("Pick a dungeon on the left.")
+
+  f.rows = {}
+
   f:Hide()
-  return f
-end
-
-local function CreateFrame_FDQ()
-  local f = CreateWindowBase("FDQ_ReportFrame", 520, 480)
-
-  f.backButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  f.backButton:SetSize(90, 22)
-  f.backButton:SetPoint("TOPLEFT", 14, -14)
-  f.backButton:SetText("< Dungeons")
-  f.backButton:SetScript("OnClick", function()
-    f:Hide()
-    FDQ:ShowDungeonList()
-  end)
-
-  f.scroll = CreateFrame("ScrollFrame", "FDQ_ReportScroll", f, "UIPanelScrollFrameTemplate")
-  f.scroll:SetPoint("TOPLEFT", 16, -90)
-  f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
-
-  f.content = CreateFrame("Frame", nil, f.scroll)
-  f.content:SetSize(1, 1)
-  f.scroll:SetScrollChild(f.content)
-  f.scroll:SetScript("OnSizeChanged", function(scroll, width)
-    f.content:SetWidth(width)
-  end)
-
-  f.lines = {}
-
   SkinWindowChrome(f)
   return f
 end
 
-local function CreateListFrame_FDQ()
-  local f = CreateWindowBase("FDQ_ListFrame", 480, 460)
-
-  f.title:SetText("Choose a Dungeon")
-  f.subtitle:SetText("Check quests before you queue or travel.")
-
-  f.levelDropdown = CreateFrame("Frame", "FDQ_LevelDropdown", f, "UIDropDownMenuTemplate")
-  f.levelDropdown:SetPoint("TOP", f.subtitle, "BOTTOM", -16, -2)
-  UIDropDownMenu_SetWidth(f.levelDropdown, 110)
-  UIDropDownMenu_Initialize(f.levelDropdown, LevelDropdown_Initialize)
-
-  f.scroll = CreateFrame("ScrollFrame", "FDQ_ListScroll", f, "UIPanelScrollFrameTemplate")
-  f.scroll:SetPoint("TOPLEFT", 16, -140)
-  f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
-
-  f.content = CreateFrame("Frame", nil, f.scroll)
-  f.content:SetSize(1, 1)
-  f.scroll:SetScrollChild(f.content)
-
-  f.buttons = {}
-
-  SkinWindowChrome(f)
-  return f
+local function GetSidebarButton(f, index)
+  local button = f.sidebarButtons[index]
+  if not button then
+    button = CreateFrame("Button", nil, f.sidebarContent, "UIPanelButtonTemplate")
+    button:SetSize(170, 24)
+    button:SetPoint("TOPLEFT", 0, -((index - 1) * 28))
+    ApplyDefaultFont(button:GetFontString())
+    f.sidebarButtons[index] = button
+    if skin then
+      skin.Button(button)
+    end
+  end
+  return button
 end
 
-local function GetLine(f, index)
-  local line = f.lines[index]
-  if not line then
-    line = f.content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    line:SetPoint("TOPLEFT", 4, -((index - 1) * 16) - 4)
-    line:SetPoint("RIGHT", f.content, "RIGHT", -4, 0)
-    line:SetJustifyH("LEFT")
-    line:SetWordWrap(false)
-    f.lines[index] = line
-  end
-  if skin then
-    skin.Font(line)
-  end
-  line:Show()
-  return line
-end
-
--- The dungeon picker: the normal entry point via `/fdq` with no arguments.
--- Meant to be checked before queueing/traveling, not just while inside.
-function FDQ:ShowDungeonList()
-  if not listFrame then
-    listFrame = CreateListFrame_FDQ()
-  end
-
-  if frame then
-    frame:Hide()
-  end
+-- (Re)builds the sidebar dungeon list for the current level-bracket filter,
+-- without touching whatever's currently shown in the right-hand table.
+function FDQ:RefreshSidebar()
+  if not mainFrame then return end
+  local f = mainFrame
 
   local brackets = GetAvailableBrackets()
   if not selectedBracketMin then
     selectedBracketMin = GetNearestBracket(GetPlayerBracket(), brackets)
   end
 
-  UIDropDownMenu_Initialize(listFrame.levelDropdown, LevelDropdown_Initialize)
-  UIDropDownMenu_SetSelectedValue(listFrame.levelDropdown, selectedBracketMin)
-  UIDropDownMenu_SetText(listFrame.levelDropdown, "Level " .. BracketLabel(selectedBracketMin))
+  local dropdownOptions = {}
+  for _, bracketMin in ipairs(brackets) do
+    table.insert(dropdownOptions, { text = "Level " .. BracketLabel(bracketMin), value = bracketMin })
+  end
+  f.levelDropdown:SetOptions(dropdownOptions, selectedBracketMin, function(value)
+    selectedBracketMin = value
+    FDQ:RefreshSidebar()
+  end)
 
   local filtered = {}
   for _, dungeon in ipairs(FDQ_Dungeons) do
@@ -250,90 +562,142 @@ function FDQ:ShowDungeonList()
     return a.name < b.name
   end)
 
-  for _, button in pairs(listFrame.buttons) do
+  for _, button in pairs(f.sidebarButtons) do
     button:Hide()
   end
 
-  local COLS = 2
-  local COL_WIDTH = 205
-  local COL_GAP = 20
-  local ROW_HEIGHT = 24
-  local ROW_GAP = 10
-
   for i, dungeon in ipairs(filtered) do
-    local button = listFrame.buttons[i]
-    if not button then
-      button = CreateFrame("Button", nil, listFrame.content, "UIPanelButtonTemplate")
-      button:SetSize(COL_WIDTH, ROW_HEIGHT)
-      listFrame.buttons[i] = button
-      if skin then
-        skin.Button(button)
-      end
-    end
-
-    local col = (i - 1) % COLS
-    local row = math.floor((i - 1) / COLS)
-    button:ClearAllPoints()
-    button:SetPoint("TOPLEFT", col * (COL_WIDTH + COL_GAP), -(row * (ROW_HEIGHT + ROW_GAP)))
-
+    local button = GetSidebarButton(f, i)
     local atLevel = dungeon.levels and dungeon.levels.atLevel
     local label = dungeon.name
     if atLevel then
       label = label .. "  |cffaaaaaa(" .. atLevel .. ")|r"
     end
     button:SetText(label)
+    if selectedDungeon == dungeon then
+      button:LockHighlight()
+    else
+      button:UnlockHighlight()
+    end
     button:SetScript("OnClick", function()
-      listFrame:Hide()
-      FDQ:OpenDungeonReport(dungeon)
+      FDQ:SelectDungeon(dungeon)
     end)
     button:Show()
   end
 
-  if not listFrame.emptyText then
-    listFrame.emptyText = listFrame.content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    listFrame.emptyText:SetPoint("TOPLEFT", 2, -2)
-    listFrame.emptyText:SetText("No dungeons in this level range.")
-  end
-  listFrame.emptyText:SetShown(#filtered == 0)
+  f.sidebarContent:SetHeight(math.max(1, #filtered * 28))
 
-  local rowCount = math.ceil(#filtered / COLS)
-  listFrame.content:SetHeight(math.max(1, rowCount * (ROW_HEIGHT + ROW_GAP)))
-  listFrame:Show()
+  if not f.sidebarEmptyText then
+    f.sidebarEmptyText = f.sidebarContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(f.sidebarEmptyText)
+    f.sidebarEmptyText:SetPoint("TOPLEFT", 2, -2)
+    f.sidebarEmptyText:SetText("No dungeons in this level range.")
+  end
+  f.sidebarEmptyText:SetShown(#filtered == 0)
 end
 
--- Used by the minimap button: hide whichever window is open, or open the
--- dungeon picker if neither is.
-function FDQ:ToggleUI()
-  if (frame and frame:IsShown()) or (listFrame and listFrame:IsShown()) then
-    if frame then frame:Hide() end
-    if listFrame then listFrame:Hide() end
+local function GetRow(f, index)
+  local row = f.rows[index]
+  if not row then
+    row = {}
+    local function MakeCell(col, template)
+      local fs = f.tableContent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+      ApplyDefaultFont(fs)
+      fs:SetWidth(col.w)
+      fs:SetJustifyH("LEFT")
+      fs:SetWordWrap(false)
+      if skin then skin.Font(fs) end
+      return fs
+    end
+    row.status = MakeCell(COL.status)
+    row.name = MakeCell(COL.name)
+    row.level = MakeCell(COL.level)
+    row.pickup = MakeCell(COL.pickup)
+
+    row.notes = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(row.notes)
+    row.notes:SetWidth(COL.pickup.x + COL.pickup.w - COL.name.x)
+    row.notes:SetJustifyH("LEFT")
+    row.notes:SetWordWrap(false)
+
+    f.rows[index] = row
+  end
+  return row
+end
+
+-- Positions row `index`'s cells at vertical offset `y` (both in the table's
+-- content frame), and fills in the quest's data. Returns the height consumed.
+local function LayoutRow(f, index, y, quest, status)
+  local row = GetRow(f, index)
+
+  row.status:ClearAllPoints()
+  row.status:SetPoint("TOPLEFT", COL.status.x, -y)
+  row.status:SetText(STATUS_COLOR[status] .. STATUS_LABEL[status] .. "|r")
+
+  row.name:ClearAllPoints()
+  row.name:SetPoint("TOPLEFT", COL.name.x, -y)
+  row.name:SetText(quest.name)
+
+  row.level:ClearAllPoints()
+  row.level:SetPoint("TOPLEFT", COL.level.x, -y)
+  row.level:SetText(tostring(quest.level or "-"))
+
+  row.pickup:ClearAllPoints()
+  row.pickup:SetPoint("TOPLEFT", COL.pickup.x, -y)
+  local pickupText = quest.giver or "?"
+  if quest.location then
+    pickupText = pickupText .. " - " .. quest.location
+  end
+  if quest.coords then
+    pickupText = pickupText .. " /way " .. quest.coords
+  end
+  row.pickup:SetText(pickupText)
+
+  row.status:Show()
+  row.name:Show()
+  row.level:Show()
+  row.pickup:Show()
+
+  local height = ROW_HEIGHT
+  if quest.notes then
+    row.notes:ClearAllPoints()
+    row.notes:SetPoint("TOPLEFT", COL.name.x, -(y + ROW_HEIGHT))
+    row.notes:SetText(quest.notes)
+    row.notes:Show()
+    height = height + NOTE_HEIGHT
   else
-    FDQ:ShowDungeonList()
+    row.notes:Hide()
   end
+
+  return height + ROW_GAP
 end
 
-function FDQ:ShowReport(dungeon, rows)
-  if not frame then
-    frame = CreateFrame_FDQ()
+-- Shows the quest table for `dungeon` in the right-hand panel, and updates
+-- the sidebar's highlighted selection to match.
+function FDQ:SelectDungeon(dungeon)
+  if not mainFrame then
+    mainFrame = CreateMainFrame()
   end
+  local f = mainFrame
+  selectedDungeon = dungeon
 
-  if listFrame then
-    listFrame:Hide()
-  end
+  FDQ:RefreshSidebar()
 
-  frame.content:SetWidth(frame.scroll:GetWidth())
-
-  frame.title:SetText(dungeon.name)
+  f.dungeonName:SetText(dungeon.name)
 
   local faction = FDQ:GetPlayerFaction()
   local levels = dungeon.levels or {}
-  local levelText = string.format(
-    "Hard: %s  Medium: %s  At Level: %s  Easy: %s",
-    levels.hard or "-", levels.medium or "-", levels.atLevel or "-", levels.easy or "-"
-  )
-  frame.subtitle:SetText(levelText .. "   |   Faction: " .. faction)
+  f.dungeonMeta:SetText(string.format(
+    "Hard: %s  Medium: %s  At Level: %s  Easy: %s   |   Faction: %s",
+    levels.hard or "-", levels.medium or "-", levels.atLevel or "-", levels.easy or "-", faction
+  ))
 
-  -- sort missing quests first, then active, then completed
+  f.dungeonNote:SetShown(dungeon.keyNote ~= nil)
+  if dungeon.keyNote then
+    f.dungeonNote:SetText("|cffffcc00Note:|r " .. dungeon.keyNote)
+  end
+
+  local rows = FDQ:BuildReport(dungeon)
   local order = { missing = 1, active = 2, completed = 3 }
   table.sort(rows, function(a, b)
     if order[a.status] ~= order[b.status] then
@@ -342,68 +706,64 @@ function FDQ:ShowReport(dungeon, rows)
     return a.quest.name < b.quest.name
   end)
 
-  for _, line in pairs(frame.lines) do
-    line:Hide()
+  for _, row in pairs(f.rows) do
+    row.status:Hide()
+    row.name:Hide()
+    row.level:Hide()
+    row.pickup:Hide()
+    row.notes:Hide()
   end
 
-  local lineIndex = 1
-
-  if dungeon.keyNote then
-    local line = GetLine(frame, lineIndex)
-    line:SetText("|cffffcc00Note:|r " .. dungeon.keyNote)
-    lineIndex = lineIndex + 1
-    lineIndex = lineIndex + 1 -- blank spacer
+  local y = 0
+  for i, entry in ipairs(rows) do
+    y = y + LayoutRow(f, i, y, entry.quest, entry.status)
   end
 
-  for _, row in ipairs(rows) do
-    local quest = row.quest
-    local color = STATUS_COLOR[row.status]
-    local label = STATUS_LABEL[row.status]
+  f.emptyText:SetShown(#rows == 0)
+  f.tableContent:SetHeight(math.max(1, y))
+end
 
-    local line = GetLine(frame, lineIndex)
-    local text = string.format("%s[%s]|r  %s |cffaaaaaa(lvl %d)|r", color, label, quest.name, quest.level or 0)
-    line:SetText(text)
-    lineIndex = lineIndex + 1
-
-    local detail = GetLine(frame, lineIndex)
-    local detailText = "     " .. (quest.giver or "?")
-    if quest.location then
-      detailText = detailText .. " - " .. quest.location
-    end
-    if quest.coords then
-      detailText = detailText .. " /way " .. quest.coords
-    end
-    detail:SetText("|cff888888" .. detailText .. "|r")
-    lineIndex = lineIndex + 1
-
-    if quest.notes then
-      local noteLine = GetLine(frame, lineIndex)
-      noteLine:SetText("|cff666666     " .. quest.notes .. "|r")
-      lineIndex = lineIndex + 1
-    end
-
-    lineIndex = lineIndex + 1 -- spacer between quests
+-- The main entry point via `/fdq` or the minimap button. Opens the window;
+-- if `dungeon` is given, selects it, otherwise keeps whatever was last
+-- selected (or nothing, on first open).
+function FDQ:ShowMain(dungeon)
+  if not mainFrame then
+    mainFrame = CreateMainFrame()
   end
 
-  frame.content:SetHeight(math.max(1, (lineIndex - 1) * 16))
-  frame:Show()
+  FDQ:RefreshSidebar()
+
+  if dungeon then
+    FDQ:SelectDungeon(dungeon)
+  elseif selectedDungeon then
+    FDQ:SelectDungeon(selectedDungeon)
+  end
+
+  mainFrame:Show()
+end
+
+-- Used by the minimap button: hide the window if it's open, otherwise open it.
+function FDQ:ToggleUI()
+  if mainFrame and mainFrame:IsShown() then
+    mainFrame:Hide()
+  else
+    FDQ:ShowMain()
+  end
 end
 
 if EllesmereUI and EllesmereUI.RegisterSkin then
   EllesmereUI.RegisterSkin("ForeverDungeonQuests", function(S)
     skin = S
-    -- Re-skin whatever's already been created (e.g. if the player opened
-    -- the UI once before EUI finished registering skins at PLAYER_LOGIN).
-    if frame then
-      SkinWindowChrome(frame)
-      for _, line in pairs(frame.lines) do
-        skin.Font(line)
-      end
-    end
-    if listFrame then
-      SkinWindowChrome(listFrame)
-      for _, button in pairs(listFrame.buttons) do
+    if mainFrame then
+      SkinWindowChrome(mainFrame)
+      for _, button in pairs(mainFrame.sidebarButtons) do
         skin.Button(button)
+      end
+      for _, row in pairs(mainFrame.rows) do
+        skin.Font(row.status)
+        skin.Font(row.name)
+        skin.Font(row.level)
+        skin.Font(row.pickup)
       end
     end
   end)

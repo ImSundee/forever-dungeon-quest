@@ -52,9 +52,46 @@ ForeverDungeonQuests/
   ForeverDungeonQuests.toc   -- Interface 16001, lists Data/Core/UI/Minimap load order
   Data.lua                   -- FDQ_Dungeons: static quest database (see below)
   Core.lua                   -- FDQ: faction/dungeon detection, quest status logic, slash command
-  UI.lua                     -- FDQ:ShowReport()/ShowDungeonList()/ToggleUI(): the two windows
+  UI.lua                     -- FDQ:ShowMain()/SelectDungeon()/ToggleUI(): the single window
   Minimap.lua                -- draggable minimap button, calls FDQ:ToggleUI()
 ```
+
+### UI shape: one window, sidebar + table
+
+v0.1/v0.2 used two separate popup windows (a dungeon picker, and a report
+window you'd navigate back-and-forth from via a "< Dungeons" button). That
+was replaced with a single window (`CreateMainFrame()` in `UI.lua`) split
+into:
+
+- **Left sidebar** (`f.sidebar`): a level-bracket dropdown filter (defaults
+  to the player's own level range) above a scrollable list of dungeon
+  buttons for that bracket. Clicking a button calls `FDQ:SelectDungeon(dungeon)`
+  — it does **not** close or replace the window, just swaps the right panel's
+  content and highlights the clicked button (`button:LockHighlight()`).
+- **Right panel** (`f.rightPanel`): the selected dungeon's name/level-range/
+  faction/keyNote, a fixed column-header row (Status / Quest / Lvl /
+  Pickup), and a scrollable quest table below it.
+
+The quest table is hand-laid-out, not a real Blizzard table widget — WoW's
+UI API has no built-in data table, so each row is a pool of FontStrings
+(`GetRow()`) repositioned every render pass via `LayoutRow()`, which returns
+the pixel height consumed (16px, +14px if the quest has a `notes` line) so
+the next row's y-offset accounts for variable row height. Column x-offsets
+and widths live in the `COL` table near the top of `UI.lua` — change layout
+there, not by hunting through render code.
+
+State that persists across `SelectDungeon` calls (module-locals, not saved
+to disk): `selectedBracketMin` (sidebar filter) and `selectedDungeon` (right
+panel content) are both sticky for the session so reopening the window via
+the minimap button keeps your place. Neither survives `/reload` — if that
+turns out to matter, they'd move into `FDQ_DB` like `minimapAngle` already
+does.
+
+**Untested**: this whole layout, including whether `ClearAllPoints()` +
+re-`SetPoint()` every render is fine performance-wise (it should be, this
+isn't a per-frame hot path) and whether the fixed `COL` widths clip any
+quest name in `Data.lua` — worth a pass once in-game with EllesmereUI both
+present and absent.
 
 ### Minimap button
 
@@ -65,8 +102,8 @@ Blizzard's own built-in quest-giver icon
 custom texture, since it already reads as "quest" and needs no image asset
 to ship. Position is angle-based around the minimap circumference, saved to
 `FDQ_DB.minimapAngle` (persists via the same SavedVariable as the completed-
-quest cache). Click calls `FDQ:ToggleUI()` (`UI.lua`), which opens the
-dungeon picker or closes whichever Forever Dungeon Quests window is open.
+quest cache). Click calls `FDQ:ToggleUI()` (`UI.lua`), which opens the main
+window (see "UI shape" above) or closes it if already open.
 
 **Unverified**: like the rest of the UI, not yet tested against a live
 client — worth confirming the icon/border textures referenced
@@ -74,6 +111,61 @@ client — worth confirming the icon/border textures referenced
 `AvailableQuestIcon`) still exist under those exact paths in Forever's client
 files, since Retail sometimes renames/relocates minimap-related art between
 versions.
+
+### Custom dropdown and scrollbar (no Blizzard widget art)
+
+After in-game feedback that the sidebar's level-bracket dropdown (built on
+`UIDropDownMenuTemplate`) and the scrollbars (built on
+`UIPanelScrollFrameTemplate`) looked visually inconsistent with the rest of
+the flat/clean window -- ornate brown-bordered dropdown box with a round
+arrow button, beveled gold scrollbar arrows -- both were replaced with
+hand-rolled equivalents in `UI.lua`, independent of EllesmereUI. This went
+through a few iterations based on in-game screenshots; current state:
+
+- `CreateCleanDropdown(parent, width)`: a plain bordered box (built from
+  `WHITE_TEXTURE`, a stock 8x8 white texture used as a solid-color fill/
+  border throughout) with an ASCII `"v"` caret instead of a texture arrow,
+  and a small flat popout menu that is **its own frame**, not Blizzard's
+  shared global `DropDownList1` -- avoids any risk of that affecting other
+  addons' dropdowns. Exposes `dd:SetOptions(options, selectedValue, onSelect)`.
+  Each row in the popout has a small colored swatch (`ACCENT_COLOR`, an
+  orange similar to Blizzard's own Edit Mode settings dropdowns) instead of
+  a full-row highlight for the selected item, plus a thin 1px divider
+  between rows -- explicitly modeled on a screenshot of Blizzard's Edit
+  Mode dropdown the user provided as a reference for "clean."
+- `CleanScrollBar(scrollBar)`: still uses the real `ScrollBar` object from
+  `UIPanelScrollFrameTemplate` (scrolling behavior is unchanged), but
+  **hides the up/down arrow buttons entirely** (`Hide()` + `EnableMouse(false)`,
+  not just reskinned) and recolors the thumb to a plain translucent white
+  rectangle. Feedback was that even a reskinned arrow glyph was noisier than
+  needed -- just the thumb/track reads as "clean."
+
+This is unconditional now (not gated behind EllesmereUI at all) -- the
+addon's own default look no longer depends on a theming addon being
+installed. `EllesmereUI.RegisterSkin`'s `S.ScrollBar` call is still applied
+on top in `SkinWindowChrome` if EUI is present (for accent-color theming);
+there's no `S.Dropdown` call since the dropdown isn't a
+`UIDropDownMenuTemplate` anymore for EUI to recognize.
+
+**Confirmed in-game (2026-09-24), two issues found and fixed along the way**:
+1. `UIPanelScrollFrameTemplate`'s `ScrollUpButton`/`ScrollDownButton` do
+   exist under those names on Forever's client (`SecureScrollTemplates.xml`).
+   Calling `btn:SetNormalTexture(nil)` (and Pushed/Disabled) throws
+   `bad argument #1 to 'SetNormalTexture' (Usage: self:SetNormalTexture(asset))`
+   -- these are **secure** button templates and their texture setters
+   reject `nil` as an asset. (Moot now that the buttons are just hidden
+   outright, but worth remembering generally: prefer
+   `GetXTexture():SetTexture(nil)` over `SetXTexture(nil)` on secure-template
+   buttons if a future change needs to touch their textures again.)
+2. Unicode triangle glyphs (`▲`/`▼`) rendered as tofu (a blank box) --
+   Forever's default font doesn't have those codepoints. Replaced with
+   plain ASCII (`v` for the dropdown arrow; the scrollbar buttons are hidden
+   now so this only applies to the dropdown).
+
+**Still unverified**: whether `GetThumbTexture()` behaves as expected on
+this client, and whether hiding `ScrollUpButton`/`ScrollDownButton` outright
+(rather than resizing them to zero) leaves an odd gap at the top/bottom of
+the scrollbar track -- hasn't been screenshotted since this latest pass.
 
 ### UI theming: EllesmereUI integration
 
@@ -86,22 +178,79 @@ callback receives EUI's `S` skinning table and is stored in the module-local
 guarded by `if skin then`, matching EllesmereUI's documented pattern of
 idempotent, always-safe-to-call primitives.
 
-Without EllesmereUI installed, windows fall back to a plain flat panel
+Without EllesmereUI installed, the window falls back to a plain flat panel
 (`Interface/Tooltips/UI-Tooltip-*`) rather than the ornate gold-trimmed
 `DialogFrame` template used in the very first version of this addon — that
 was changed because it looked inconsistent/dated next to a themed UI and
-had no addon branding. Every window now has a persistent
-`"Forever Dungeon Quests"` brand label above the contextual title.
+had no addon branding. The window has a persistent `"Forever Dungeon Quests"`
+brand label above its title.
+
+#### Default font (Expressway, or Overpass as a licensed fallback) and live accent color
+
+- **Font**: `FONT_PATH` tries, in order:
+  1. `LibStub("LibSharedMedia-3.0", true):Fetch("font", "Expressway", true)`
+     -- **confirmed working in-game (2026-09-24)**: the debug print (see
+     below) showed this actually resolves to
+     `Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF` with
+     `SetFont` returning `true`, meaning EllesmereUI itself registers
+     "Expressway" with LibSharedMedia -- the earlier assumption that it
+     manages fonts purely internally was wrong.
+  2. If LibSharedMedia comes up empty and the global `EllesmereUI` table
+     exists, fall back to that same path by direct guess (belt-and-suspenders
+     for installs where LSM isn't registered but the file is still there).
+  3. **`Fonts/Overpass-Regular.ttf`, bundled in this repo** -- the
+     guaranteed final fallback, so the font situation isn't a no-op for
+     anyone without EllesmereUI. Overpass is licensed under the
+     [SIL Open Font License](../ForeverDungeonQuests/Fonts/LICENSE-Overpass.md)
+     (see [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md) for the
+     full reasoning), pulled unmodified from
+     [github.com/googlefonts/overpass](https://github.com/googlefonts/overpass).
+     It was picked specifically because it's an open-source interpretation
+     of the same U.S. FHWA "Highway Gothic" letterforms Expressway itself
+     is based on -- a deliberate visual lookalike, not an arbitrary
+     substitute. **Expressway itself was never bundled** in this repo: it's
+     under a proprietary Fontspring EULA whose free "desktop license" does
+     not grant redistribution rights for embedding in software (that
+     requires a separate paid "Application License") -- confirmed by
+     reading Font Squirrel's license page and Fontspring's EULA terms
+     directly. Also confirmed that EllesmereUI's own `license.txt` doesn't
+     change this: it disclaims EllesmereUI's *own* copyright claim over
+     third-party resources, but a disclaimer isn't a redistribution grant,
+     and only Fontspring/Typodermic can grant one.
+  `ApplyDefaultFont(fontString)` applies whichever `FONT_PATH` resolved to
+  every FontString we create (keeping its template's size/outline flags).
+  `fontPathFailed` is a one-shot latch: if `SetFont` ever returns `false`
+  on the first FontString it's tried on, every later call becomes a no-op
+  instead of repeating a call already known to fail -- in practice this
+  shouldn't trigger now that there's always a real, addon-relative bundled
+  path as the final fallback. EllesmereUI's own `skin.Font()` call, when
+  present, runs *after* `ApplyDefaultFont` in every call site, so EUI's own
+  live font choice still wins when EUI is actively skinning this addon.
+  `PrintFontDebug` prints a one-shot chat line reporting `LibStub` presence,
+  the resolved `FONT_PATH`/`FONT_SOURCE`, and whether `SetFont` succeeded --
+  useful to leave in for now given how much back-and-forth this took to
+  nail down; remove once confident it's not needed anymore.
+- **Accent color**: the dropdown menu's selected-row swatch calls
+  `GetAccentColor()`, which prefers EllesmereUI's live `S.GetAccentColor()`
+  over the static `ACCENT_COLOR` fallback table when `skin` is set. Not
+  cached (re-read every time the dropdown re-renders), per EllesmereUI's own
+  guidance not to cache getter results.
+
+**Still unverified**: whether the bundled-Overpass path actually renders
+visibly differently from the default `GameFont*` templates in-game --
+confirmed working via the LibSharedMedia branch already (see above), but
+the Overpass fallback branch specifically hasn't been screenshotted since
+it was added.
 
 **Unverified**: this was written directly against EllesmereUI's
 `SKINNING_API.md` (apiVersion 1) without a live client + EllesmereUI
 installed to test against. First things to check once that's possible: does
-`S.Shell` actually look right on our two windows, does `S.Font` correctly
-re-font the dynamically-created quest-line FontStrings (created lazily in
-`GetLine`, potentially before or after the skin callback fires), and does
-re-skinning already-visible frames (the "re-skin whatever's already been
-created" block at the bottom of `UI.lua`) actually work or fight with EUI's
-own re-layout.
+`S.Shell` actually look right on the single window (now wider, with a
+sidebar + table instead of a simple list), does `S.Font` correctly re-font
+the dynamically-created quest-row FontStrings (created lazily in `GetRow`,
+potentially before or after the skin callback fires), and does re-skinning
+an already-visible frame (the block at the bottom of `UI.lua`) actually
+work or fight with EUI's own re-layout.
 
 ### Quest matching is by **title**, not quest ID — on purpose
 
@@ -132,8 +281,8 @@ accepting an incomplete completed-quest index.
 ### Faction filtering
 
 `UnitFactionGroup("player")` → `"Alliance"` / `"Horde"`. Each quest in
-`Data.lua` has `faction = "Alliance" | "Horde" | "Neutral"`; the report only
-shows the player's own faction plus `"Neutral"` entries.
+`Data.lua` has `faction = "Alliance" | "Horde" | "Neutral"`; the quest table
+only shows the player's own faction plus `"Neutral"` entries.
 
 ### Dungeon detection
 
@@ -146,52 +295,57 @@ event** — see the "planning tool, not popup" decision below.
 
 ### UI flow: planning tool, not an in-instance popup
 
-Original v0.1 design auto-popped the report on `PLAYER_ENTERING_WORLD` when
-inside a dungeon. That was changed on purpose: the addon's primary job is to
-let players check a dungeon's quest list **before** queueing/traveling, not
-just after they're standing inside it. Current flow:
+Original v0.1 design auto-popped a report window on `PLAYER_ENTERING_WORLD`
+when inside a dungeon. That was changed on purpose: the addon's primary job
+is to let players check a dungeon's quest list **before** queueing/
+traveling, not just after they're standing inside it. Current flow (as of
+the v0.3 single-window rework):
 
-- `/fdq` with no args → `FDQ:ShowDungeonList()` (`UI.lua`) opens a picker
-  frame listing every dungeon in `FDQ_Dungeons`, sorted by level. Clicking one
-  calls `FDQ:OpenDungeonReport(dungeon)`.
-- `/fdq <name>` → skips the picker, fuzzy-matches by name, opens the report
-  directly.
-- The report frame has a "< Dungeons" button (top-left) that re-opens the
-  picker.
+- `/fdq` with no args → `FDQ:ShowMain()` (`UI.lua`) opens the window,
+  keeping whatever dungeon was last selected (or nothing, on first open).
+- `/fdq <name>` → fuzzy-matches by name and opens the window with that
+  dungeon pre-selected via `FDQ:ShowMain(dungeon)`.
+- Clicking a dungeon in the sidebar calls `FDQ:SelectDungeon(dungeon)`
+  directly — no navigation between separate windows anymore.
 - Nothing auto-opens on zone change right now. `GetCurrentInstanceDungeon`/
   `FindDungeonByZoneName` are kept in `Core.lua` specifically because a
   **future** "you have missing quests" warning-on-entry feature (a small
-  alert bar, not the full report) will need them — see Roadmap below.
+  alert bar, not the full window) will need them — see Roadmap below.
 
 ## Roadmap
 
-- [ ] **Entry warning bar** (explicitly deferred, not v0.1): a small
-      unobtrusive bar/toast when entering a dungeon with missing quests,
-      distinct from the full picker/report UI. Would reuse
-      `GetCurrentInstanceDungeon()` + `BuildReport()`, hooked to
-      `PLAYER_ENTERING_WORLD`.
-- [ ] Minimap button / options panel — currently `/fdq` slash command only.
+- [ ] **Entry warning bar** (explicitly deferred): a small unobtrusive
+      bar/toast when entering a dungeon with missing quests, distinct from
+      the full window. Would reuse `GetCurrentInstanceDungeon()` +
+      `BuildReport()`, hooked to `PLAYER_ENTERING_WORLD`.
+- [x] Minimap button — shipped in v0.2.0.
+- [ ] Options panel (e.g. toggling the minimap button, default level
+      bracket) — currently `/fdq` slash command only, no Blizzard
+      Interface Options integration.
 
 ## Known gaps / next steps
 
-- [ ] **In-game testing has started** (the picker window has been confirmed
-      rendering in-game via a screenshot) but is not exhaustive yet. Still
-      need to confirm: `GetTitleForQuestID` behavior for the completed-quest
-      index (see assumption above), that `IsInInstance()`/`GetInstanceInfo()`
-      naming matches the `aliases` in `Data.lua` exactly, that the
-      EllesmereUI skin integration actually renders correctly with EUI
-      installed and enabled (see "UI theming" above — untested as of this
-      writing), and the flat fallback panel look for players without EUI.
+- [ ] **In-game testing has started** (an earlier two-window version of the
+      UI was confirmed rendering in-game via a screenshot) but is not
+      exhaustive, and the v0.3 single-window/sidebar-plus-table rework
+      hasn't been screenshotted at all yet. Still need to confirm:
+      `GetTitleForQuestID` behavior for the completed-quest index (see
+      assumption above), that `IsInInstance()`/`GetInstanceInfo()` naming
+      matches the `aliases` in `Data.lua` exactly, that the EllesmereUI skin
+      integration actually renders correctly with EUI installed and enabled
+      (see "UI theming" above — untested as of this writing), the flat
+      fallback panel look for players without EUI, and that the hand-laid-out
+      quest table columns (see "UI shape" above) don't clip or overlap.
 - [ ] Fill in the `TBD` quest givers in Ruins of Lordaeron once Wowhead (or
       testing) fills them in.
 - [ ] Consider re-scraping the Wowhead page closer to 2026-11-04 launch in
       case quest data changes during Beta.
 - [ ] No handling yet for **class-restricted** quests beyond a free-text note
-      (e.g. `"Paladin only"`, `"Mage only"`, `"Blacksmiths only"`) — the report
+      (e.g. `"Paladin only"`, `"Mage only"`, `"Blacksmiths only"`) — the table
       shows them but doesn't cross-check the player's class. Could add a
       `classOnly` field to `Data.lua` and filter/flag it in `Core.lua`.
 - [ ] No handling for **prerequisite chain status** — `notes` is free text
-      describing prereqs, but the report doesn't check whether those
+      describing prereqs, but the table doesn't check whether those
       prerequisite quests are done. Would need those chain quests added as
       their own entries to check programmatically.
 
@@ -221,6 +375,17 @@ entry is written last so it reflects what actually landed):
    This is the long-term historical record the project didn't have before
    v0.2.0 — don't let it drift out of sync with what a tag actually shipped.
 3. Then tag and push.
+
+## Licensing
+
+This repo's own code/data is MIT-licensed ([LICENSE](LICENSE)). Any bundled
+third-party asset keeps its own license instead, tracked in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) — currently just the
+Overpass font (see "Default font" above for why it's there instead of
+Expressway). If a future change bundles another third-party asset (another
+font, a texture, a library), add an entry there rather than assuming MIT
+covers it — MIT is what covers *this project's* code, not whatever else
+gets dropped into the repo.
 
 ## Session continuity notes
 
