@@ -30,6 +30,63 @@ local frame
 local listFrame
 local skin -- set by EllesmereUI.RegisterSkin's callback, nil if EUI isn't present/enabled
 
+-- Level-bracket filter for the dungeon picker grid, so it only shows a
+-- handful of dungeons at a time instead of the full list.
+local BRACKET_SIZE = 10
+local selectedBracketMin -- nil until first ShowDungeonList call, then sticky for the session
+
+local function GetDungeonBracket(dungeon)
+  local atLevel = (dungeon.levels and dungeon.levels.atLevel) or 1
+  return math.floor((atLevel - 1) / BRACKET_SIZE) * BRACKET_SIZE + 1
+end
+
+local function GetAvailableBrackets()
+  local seen, brackets = {}, {}
+  for _, dungeon in ipairs(FDQ_Dungeons) do
+    local bracket = GetDungeonBracket(dungeon)
+    if not seen[bracket] then
+      seen[bracket] = true
+      table.insert(brackets, bracket)
+    end
+  end
+  table.sort(brackets)
+  return brackets
+end
+
+local function GetNearestBracket(target, brackets)
+  local best, bestDiff
+  for _, bracket in ipairs(brackets) do
+    local diff = math.abs(bracket - target)
+    if not bestDiff or diff < bestDiff then
+      best, bestDiff = bracket, diff
+    end
+  end
+  return best
+end
+
+local function GetPlayerBracket()
+  local level = UnitLevel("player") or 1
+  return math.floor((level - 1) / BRACKET_SIZE) * BRACKET_SIZE + 1
+end
+
+local function BracketLabel(bracketMin)
+  return bracketMin .. "-" .. (bracketMin + BRACKET_SIZE - 1)
+end
+
+local function LevelDropdown_Initialize(dropdown, level)
+  for _, bracketMin in ipairs(GetAvailableBrackets()) do
+    local info = UIDropDownMenu_CreateInfo()
+    info.text = BracketLabel(bracketMin)
+    info.value = bracketMin
+    info.checked = (bracketMin == selectedBracketMin)
+    info.func = function(self)
+      selectedBracketMin = self.value
+      FDQ:ShowDungeonList()
+    end
+    UIDropDownMenu_AddButton(info, level)
+  end
+end
+
 -- Applies the shared chrome (shell backdrop, close button, brand/title/subtitle
 -- fonts) to a window frame. Safe to call whether or not `skin` is set.
 local function SkinWindowChrome(f)
@@ -73,8 +130,9 @@ local function CreateWindowBase(name, width, height)
   f.brand:SetText(ADDON_NAME)
   f.brand:SetTextColor(0.6, 0.6, 0.6)
 
-  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
   f.title:SetPoint("TOP", f.brand, "BOTTOM", 0, -6)
+  f.title:SetTextColor(1, 1, 1)
 
   f.subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.subtitle:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
@@ -116,13 +174,18 @@ local function CreateFrame_FDQ()
 end
 
 local function CreateListFrame_FDQ()
-  local f = CreateWindowBase("FDQ_ListFrame", 320, 480)
+  local f = CreateWindowBase("FDQ_ListFrame", 480, 460)
 
   f.title:SetText("Choose a Dungeon")
   f.subtitle:SetText("Check quests before you queue or travel.")
 
+  f.levelDropdown = CreateFrame("Frame", "FDQ_LevelDropdown", f, "UIDropDownMenuTemplate")
+  f.levelDropdown:SetPoint("TOP", f.subtitle, "BOTTOM", -16, -2)
+  UIDropDownMenu_SetWidth(f.levelDropdown, 110)
+  UIDropDownMenu_Initialize(f.levelDropdown, LevelDropdown_Initialize)
+
   f.scroll = CreateFrame("ScrollFrame", "FDQ_ListScroll", f, "UIPanelScrollFrameTemplate")
-  f.scroll:SetPoint("TOPLEFT", 16, -80)
+  f.scroll:SetPoint("TOPLEFT", 16, -140)
   f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
 
   f.content = CreateFrame("Frame", nil, f.scroll)
@@ -163,11 +226,22 @@ function FDQ:ShowDungeonList()
     frame:Hide()
   end
 
-  local sorted = {}
-  for _, dungeon in ipairs(FDQ_Dungeons) do
-    table.insert(sorted, dungeon)
+  local brackets = GetAvailableBrackets()
+  if not selectedBracketMin then
+    selectedBracketMin = GetNearestBracket(GetPlayerBracket(), brackets)
   end
-  table.sort(sorted, function(a, b)
+
+  UIDropDownMenu_Initialize(listFrame.levelDropdown, LevelDropdown_Initialize)
+  UIDropDownMenu_SetSelectedValue(listFrame.levelDropdown, selectedBracketMin)
+  UIDropDownMenu_SetText(listFrame.levelDropdown, "Level " .. BracketLabel(selectedBracketMin))
+
+  local filtered = {}
+  for _, dungeon in ipairs(FDQ_Dungeons) do
+    if GetDungeonBracket(dungeon) == selectedBracketMin then
+      table.insert(filtered, dungeon)
+    end
+  end
+  table.sort(filtered, function(a, b)
     local levelA = (a.levels and a.levels.atLevel) or 0
     local levelB = (b.levels and b.levels.atLevel) or 0
     if levelA ~= levelB then
@@ -180,22 +254,32 @@ function FDQ:ShowDungeonList()
     button:Hide()
   end
 
-  for i, dungeon in ipairs(sorted) do
+  local COLS = 2
+  local COL_WIDTH = 205
+  local COL_GAP = 20
+  local ROW_HEIGHT = 24
+  local ROW_GAP = 10
+
+  for i, dungeon in ipairs(filtered) do
     local button = listFrame.buttons[i]
     if not button then
       button = CreateFrame("Button", nil, listFrame.content, "UIPanelButtonTemplate")
-      button:SetSize(270, 24)
-      button:SetPoint("TOPLEFT", 2, -((i - 1) * 28) - 2)
+      button:SetSize(COL_WIDTH, ROW_HEIGHT)
       listFrame.buttons[i] = button
       if skin then
         skin.Button(button)
       end
     end
 
+    local col = (i - 1) % COLS
+    local row = math.floor((i - 1) / COLS)
+    button:ClearAllPoints()
+    button:SetPoint("TOPLEFT", col * (COL_WIDTH + COL_GAP), -(row * (ROW_HEIGHT + ROW_GAP)))
+
     local atLevel = dungeon.levels and dungeon.levels.atLevel
     local label = dungeon.name
     if atLevel then
-      label = label .. "  |cffaaaaaa(lvl " .. atLevel .. ")|r"
+      label = label .. "  |cffaaaaaa(" .. atLevel .. ")|r"
     end
     button:SetText(label)
     button:SetScript("OnClick", function()
@@ -205,8 +289,27 @@ function FDQ:ShowDungeonList()
     button:Show()
   end
 
-  listFrame.content:SetHeight(math.max(1, #sorted * 28))
+  if not listFrame.emptyText then
+    listFrame.emptyText = listFrame.content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    listFrame.emptyText:SetPoint("TOPLEFT", 2, -2)
+    listFrame.emptyText:SetText("No dungeons in this level range.")
+  end
+  listFrame.emptyText:SetShown(#filtered == 0)
+
+  local rowCount = math.ceil(#filtered / COLS)
+  listFrame.content:SetHeight(math.max(1, rowCount * (ROW_HEIGHT + ROW_GAP)))
   listFrame:Show()
+end
+
+-- Used by the minimap button: hide whichever window is open, or open the
+-- dungeon picker if neither is.
+function FDQ:ToggleUI()
+  if (frame and frame:IsShown()) or (listFrame and listFrame:IsShown()) then
+    if frame then frame:Hide() end
+    if listFrame then listFrame:Hide() end
+  else
+    FDQ:ShowDungeonList()
+  end
 end
 
 function FDQ:ShowReport(dungeon, rows)

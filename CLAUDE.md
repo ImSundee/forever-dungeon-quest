@@ -49,11 +49,31 @@ Caveats carried over from the source:
 
 ```
 ForeverDungeonQuests/
-  ForeverDungeonQuests.toc   -- Interface 16001, lists Data/Core/UI load order
+  ForeverDungeonQuests.toc   -- Interface 16001, lists Data/Core/UI/Minimap load order
   Data.lua                   -- FDQ_Dungeons: static quest database (see below)
   Core.lua                   -- FDQ: faction/dungeon detection, quest status logic, slash command
-  UI.lua                     -- FDQ:ShowReport(): the popup report frame
+  UI.lua                     -- FDQ:ShowReport()/ShowDungeonList()/ToggleUI(): the two windows
+  Minimap.lua                -- draggable minimap button, calls FDQ:ToggleUI()
 ```
+
+### Minimap button
+
+Hand-rolled rather than pulling in LibDataBroker/LibDBIcon, to keep the addon
+dependency-free (no library-vendoring step exists in this repo yet). Uses
+Blizzard's own built-in quest-giver icon
+(`Interface\GossipFrame\AvailableQuestIcon`, the yellow "!") instead of a
+custom texture, since it already reads as "quest" and needs no image asset
+to ship. Position is angle-based around the minimap circumference, saved to
+`FDQ_DB.minimapAngle` (persists via the same SavedVariable as the completed-
+quest cache). Click calls `FDQ:ToggleUI()` (`UI.lua`), which opens the
+dungeon picker or closes whichever Forever Dungeon Quests window is open.
+
+**Unverified**: like the rest of the UI, not yet tested against a live
+client — worth confirming the icon/border textures referenced
+(`MiniMap-TrackingBorder`, `UI-Minimap-ZoomButton-Highlight`,
+`AvailableQuestIcon`) still exist under those exact paths in Forever's client
+files, since Retail sometimes renames/relocates minimap-related art between
+versions.
 
 ### UI theming: EllesmereUI integration
 
