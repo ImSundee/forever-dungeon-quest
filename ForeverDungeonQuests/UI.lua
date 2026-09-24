@@ -656,6 +656,13 @@ local function GetRow(f, index)
     -- row.name rather than replacing it.
     row.expandBtn = CreateFrame("Button", nil, f.tableContent)
     row.expandBtn:SetSize(COL.name.w, ROW_HEIGHT)
+    -- Plain CreateFrame("Button", ...) doesn't get mouse interaction for
+    -- free the way template-based buttons (e.g. row.waypoint's
+    -- UIPanelButtonTemplate) do -- without these two calls OnClick never
+    -- fires. This was the actual cause of the expand toggle doing nothing
+    -- in-game.
+    row.expandBtn:EnableMouse(true)
+    row.expandBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.expandBtn:Hide()
 
     -- Lazily-grown pool of prereq status lines shown under a row when
