@@ -141,15 +141,25 @@ on top in `SkinWindowChrome` if EUI is present (for accent-color theming);
 there's no more `S.Dropdown` call since the dropdown isn't a
 `UIDropDownMenuTemplate` anymore for EUI to recognize.
 
-**Unverified**: none of this has been confirmed in-game yet.
-Specifically: whether `\226\150\178`/`\226\150\188` (UTF-8 for "▲"/"▼")
-actually render as triangles in Forever's default font rather than
-tofu/blank glyphs, and whether `UIPanelScrollFrameTemplate`'s `ScrollBar`
-still exposes `ScrollUpButton`/`ScrollDownButton`/`GetThumbTexture()` the
-same way on Forever's modern client as on live Retail -- `CleanScrollBar`
-nil-checks every piece defensively so it should no-op safely rather than
-error if the structure differs, but the visual result in that case would
-just be the original unmodified scrollbar.
+**Confirmed in-game (2026-09-24)**: `UIPanelScrollFrameTemplate`'s
+`ScrollUpButton`/`ScrollDownButton` do exist under those names on Forever's
+client (`SecureScrollTemplates.xml`), each exposing `.Normal`/`.Pushed`/
+`.Disabled`/`.Highlight` texture regions. However, calling
+`btn:SetNormalTexture(nil)` (and the Pushed/Disabled equivalents) throws
+`bad argument #1 to 'SetNormalTexture' (Usage: self:SetNormalTexture(asset))`
+-- these are **secure** button templates and their texture setters reject
+`nil` as an asset. Fixed by calling `btn:GetNormalTexture():SetTexture(nil)`
+instead (clearing the texture *object* directly, rather than going through
+the Button widget's setter) -- that's a plain `Texture:SetTexture()` call,
+not gated the same way. Worth remembering for any future code that tries to
+strip textures off Blizzard secure-template buttons: prefer
+`GetXTexture():SetTexture(nil)` over `SetXTexture(nil)`.
+
+**Still unverified**: whether `\226\150\178`/`\226\150\188` (UTF-8 for
+"▲"/"▼") actually render as triangles in Forever's default font rather than
+tofu/blank glyphs, and whether `GetThumbTexture()` behaves as expected --
+neither has broken loudly (no error) so it's unconfirmed rather than known-
+broken.
 
 ### UI theming: EllesmereUI integration
 

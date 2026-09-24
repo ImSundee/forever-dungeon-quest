@@ -195,11 +195,20 @@ local function CleanScrollBar(scrollBar)
   local up = scrollBar.ScrollUpButton or (name and _G[name .. "ScrollUpButton"])
   local down = scrollBar.ScrollDownButton or (name and _G[name .. "ScrollDownButton"])
 
+  -- Clearing via SetNormalTexture(nil) etc. throws on this client's secure
+  -- button templates ("Usage: self:SetNormalTexture(asset)") -- nil isn't
+  -- accepted as an asset. Clearing the texture *object* itself works fine.
+  local function ClearTexture(tex)
+    if tex then
+      tex:SetTexture(nil)
+    end
+  end
+
   local function CleanArrowButton(btn, glyph)
     if not btn then return end
-    btn:SetNormalTexture(nil)
-    btn:SetPushedTexture(nil)
-    btn:SetDisabledTexture(nil)
+    ClearTexture(btn:GetNormalTexture())
+    ClearTexture(btn:GetPushedTexture())
+    ClearTexture(btn:GetDisabledTexture())
     btn:SetHighlightTexture(WHITE_TEXTURE)
     local highlight = btn:GetHighlightTexture()
     if highlight then

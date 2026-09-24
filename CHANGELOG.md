@@ -28,6 +28,14 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   EllesmereUI theming, this look is unconditional — it's the addon's own
   default now, not something only users with a theming addon installed get.
 
+### Fixed
+- Crash when opening the window: `SetNormalTexture(nil)` (and the Pushed/
+  Disabled equivalents) threw `bad argument #1 to 'SetNormalTexture'` on
+  the scrollbar's arrow buttons, since those are secure button templates
+  that reject `nil` as a texture asset. Fixed by clearing the texture
+  region directly (`GetNormalTexture():SetTexture(nil)`) instead of going
+  through the Button widget's setter.
+
 ## [0.2.0] - 2026-09-24
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.2.0)
