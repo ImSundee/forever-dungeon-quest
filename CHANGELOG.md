@@ -5,7 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-24
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.0)
 
 ### Changed
 - Replaced the two-window UI (a dungeon picker + a separate report window,
@@ -59,6 +61,10 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 - Dropdown/scrollbar arrows rendering as tofu (a blank box) instead of a
   triangle — the unicode glyphs used weren't in Forever's default font.
   Replaced with plain ASCII carets (`^`/`v`).
+- Sidebar dungeon buttons not picking up the Expressway/Overpass font —
+  `UIPanelButtonTemplate` exposes its label via `GetFontString()`, not
+  `CreateFontString()`, so it was never in the set of FontStrings the
+  default-font pass touched.
 
 ## [0.2.0] - 2026-09-24
 
