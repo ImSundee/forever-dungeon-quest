@@ -376,6 +376,44 @@ entry is written last so it reflects what actually landed):
    v0.2.0 — don't let it drift out of sync with what a tag actually shipped.
 3. Then tag and push.
 
+### CurseForge publishing (`publish-curseforge` job)
+
+The same `v*`-tag push also runs a second job in `release.yml`,
+`publish-curseforge`, using [BigWigsMods/packager](https://github.com/BigWigsMods/packager)
+(the "WoW Packager" GitHub Action) to build and upload straight to
+CurseForge. Chosen over hand-rolling a CurseForge API call because it's the
+de facto standard tool the WoW addon community uses for this (handles
+`.pkgmeta`, localization, and multiple upload targets — WoWInterface/Wago/
+GitHub — for when we look at "other ones later" per the roadmap, by just
+adding `WOWI_API_TOKEN`/`WAGO_API_TOKEN` and the matching `-w`/`-a` id
+flags).
+
+**Setup still needed before this job does anything** (it's gated to skip
+silently, not fail, until both are present — see below):
+1. Create the CurseForge project for this addon (if it doesn't exist yet)
+   and note its project id from the "About Project" box on the project page.
+2. Add that id as a repo **variable** (not secret, it's not sensitive):
+   Settings → Secrets and variables → Actions → Variables →
+   `CURSEFORGE_PROJECT_ID`.
+3. Generate a CurseForge API token (console.curseforge.com, or via the
+   project's settings) and add it as a repo **secret**:
+   Settings → Secrets and variables → Actions → Secrets → `CF_API_TOKEN`.
+
+The job's `if:` condition checks both `vars.CURSEFORGE_PROJECT_ID` and
+`secrets.CF_API_TOKEN` are non-empty, so tagging a release before this setup
+is done just quietly skips the CurseForge job — the existing GitHub Release
+job is unaffected either way.
+
+**Unverified / worth watching on the first real upload**: `packager`
+auto-detects supported game versions from the `## Interface:` line(s) in
+the `.toc` (see "Game context" above — `16001`, product `wow_classic_beta`).
+Since WoW: Forever is a new, still-Beta product, it's not guaranteed
+CurseForge's own game-version list (or `packager`'s mapping of interface
+numbers to it) already recognizes that interface value — if the upload step
+fails on game-version detection, the fix is `-g` on the `args:` line to set
+it explicitly (see `packager`'s README) once we know what version string
+CurseForge expects for this product.
+
 ## Licensing
 
 This repo's own code/data is MIT-licensed ([LICENSE](LICENSE)). Any bundled
