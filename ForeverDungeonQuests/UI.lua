@@ -32,18 +32,21 @@ local STATUS_LABEL = {
 -- Column layout for the quest table (x-offset, width) within the right
 -- panel's content frame.
 local COL = {
-  status  = { x = 0,   w = 56 },
-  name    = { x = 60,  w = 190 },
-  level   = { x = 254, w = 32 },
-  pickup  = { x = 290, w = 190 },
+  status  = { x = 0,   w = 50 },
+  name    = { x = 54,  w = 150 },
+  level   = { x = 208, w = 30 },
+  pickup  = { x = 242, w = 400 },
 }
 local ROW_HEIGHT = 16
 local NOTE_HEIGHT = 14
 local ROW_GAP = 6
 
 -- Level-bracket filter for the sidebar dungeon list, so it only shows a
--- handful of dungeons at a time instead of the full list.
-local BRACKET_SIZE = 10
+-- handful of dungeons at a time instead of the full list. Wider brackets
+-- (20 levels) suit the single-window layout better than the original
+-- picker's 10-level brackets did -- there's more room, and fewer dropdown
+-- entries to click through.
+local BRACKET_SIZE = 20
 local selectedBracketMin -- nil until first ShowMain call, then sticky for the session
 local selectedDungeon    -- the dungeon currently shown in the right-hand table
 
@@ -121,7 +124,7 @@ end
 
 local function CreateMainFrame()
   local f = CreateFrame("Frame", "FDQ_MainFrame", UIParent, "BackdropTemplate")
-  f:SetSize(760, 520)
+  f:SetSize(900, 540)
   f:SetPoint("CENTER")
   f:SetMovable(true)
   f:EnableMouse(true)
@@ -195,18 +198,18 @@ local function CreateMainFrame()
   f.dungeonMeta = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.dungeonMeta:SetPoint("TOPLEFT", f.dungeonName, "BOTTOMLEFT", 0, -4)
   f.dungeonMeta:SetJustifyH("LEFT")
-  f.dungeonMeta:SetWidth(470)
+  f.dungeonMeta:SetWidth(640)
 
   f.dungeonNote = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.dungeonNote:SetPoint("TOPLEFT", f.dungeonMeta, "BOTTOMLEFT", 0, -4)
   f.dungeonNote:SetJustifyH("LEFT")
-  f.dungeonNote:SetWidth(470)
+  f.dungeonNote:SetWidth(640)
   f.dungeonNote:SetWordWrap(true)
 
   -- Column headers for the quest table.
   f.colHeaders = CreateFrame("Frame", nil, f.rightPanel)
   f.colHeaders:SetPoint("TOPLEFT", f.dungeonNote, "BOTTOMLEFT", 0, -10)
-  f.colHeaders:SetSize(480, 14)
+  f.colHeaders:SetSize(640, 14)
 
   local function MakeHeader(col, text)
     local fs = f.colHeaders:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")

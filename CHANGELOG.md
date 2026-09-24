@@ -14,6 +14,12 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   column-aligned quest table (Status / Quest / Lvl / Pickup) on the right
   for whichever dungeon is selected. Clicking a different dungeon just
   swaps the table instead of navigating between windows.
+- Widened the window (900px) and rebalanced the quest table's columns —
+  narrower Quest column, much wider Pickup column — after in-game testing
+  showed pickup text (giver/zone/coords) getting cut off.
+- Level-bracket filter now groups dungeons in 20-level ranges (1-20, 21-40,
+  41-60) instead of 10-level ranges, since the wider window has room for
+  more dungeons per bracket.
 
 ## [0.2.0] - 2026-09-24
 
