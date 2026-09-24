@@ -190,32 +190,44 @@ brand label above its title.
 Two more "match EllesmereUI's own look" pieces, both best-effort and
 independent of whether EUI is actually installed:
 
-- **Font**: `FONT_PATH` does an optional `LibStub("LibSharedMedia-3.0", true)`
-  lookup for a font registered under the name `"Expressway"` — a font
-  commonly used as a UI suite's own default (including EllesmereUI's) but
-  not bundled with the game itself; it's normally supplied to
-  LibSharedMedia by a separate font-media addon (e.g. `gmFonts`) or embedded
-  inside a suite like EllesmereUI. **This addon does not ship a font file**
-  — bundling/redistributing a font binary wasn't something to do without
-  being sure of its license, so this only takes effect if something else
-  on the system already registered "Expressway" with LibSharedMedia.
-  `ApplyDefaultFont(fontString)` swaps the typeface on every FontString we
-  create (keeping its template's size/outline flags) — a no-op if
-  `FONT_PATH` is nil. EllesmereUI's own `skin.Font()` call, when present,
-  runs *after* `ApplyDefaultFont` in every call site, so EUI's live font
-  choice still wins over our Expressway attempt when EUI is active.
+- **Font**: `FONT_PATH` tries two things, neither of which involves
+  bundling a font file in this addon (redistributing someone else's
+  font binary in a public repo is a licensing question worth avoiding):
+  1. `LibStub("LibSharedMedia-3.0", true):Fetch("font", "Expressway", true)`,
+     in case some other addon (e.g. `gmFonts`) has registered it.
+  2. If that comes up empty and the global `EllesmereUI` table exists,
+     fall back to `Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF`
+     by path -- confirmed present on disk in the dev/test install
+     (`_classic_beta_/Interface/AddOns/EllesmereUI/media/fonts/`, alongside
+     an `Expressway Bold.ttf`). This works the same way LibSharedMedia
+     itself does under the hood: point at a file that's already on the
+     user's system rather than shipping a copy. If EllesmereUI's internal
+     folder layout changes in a future EUI update, this guess would need
+     updating.
+  `ApplyDefaultFont(fontString)` applies whichever `FONT_PATH` resolved to
+  every FontString we create (keeping its template's size/outline flags).
+  `fontPathFailed` is a one-shot latch: if `SetFont` returns `false` on the
+  very first FontString it's tried on (path guess was wrong even though
+  `EllesmereUI` existed), every later call becomes a no-op instead of
+  repeating a call that's already known to fail. EllesmereUI's own
+  `skin.Font()` call, when present, runs *after* `ApplyDefaultFont` in every
+  call site, so EUI's own live font choice still wins over our Expressway
+  attempt when EUI is actively skinning this addon.
 - **Accent color**: the dropdown menu's selected-row swatch calls
   `GetAccentColor()`, which prefers EllesmereUI's live `S.GetAccentColor()`
   over the static `ACCENT_COLOR` fallback table when `skin` is set. Not
   cached (re-read every time the dropdown re-renders), per EllesmereUI's own
   guidance not to cache getter results.
 
-**Unverified**: whether `LibStub("LibSharedMedia-3.0", true)` actually
-resolves to a library with "Expressway" registered in any realistic install
-(depends entirely on what else the user has installed) — if it returns nil
-or the fetch doesn't find that name, everything silently falls back to the
-`GameFont*` template defaults, which is the intended graceful degradation,
-but hasn't been observed either way in-game yet.
+**Confirmed in-game (2026-09-24)**: the first version of this (LibSharedMedia
+lookup only, no EllesmereUI path fallback) did nothing — a screenshot showed
+plain default Blizzard font everywhere despite EllesmereUI being installed
+on that machine. Most likely explanation: EllesmereUI manages its own fonts
+internally rather than registering them with classic LibSharedMedia-3.0, so
+the lookup came up empty with nothing to fall back to. The by-path fallback
+above was added specifically to address this. **Still unverified**: whether
+the by-path fallback actually resolves and renders correctly -- hasn't been
+screenshotted yet since adding it.
 
 **Unverified**: this was written directly against EllesmereUI's
 `SKINNING_API.md` (apiVersion 1) without a live client + EllesmereUI

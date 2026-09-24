@@ -33,12 +33,15 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   small accent-colored swatch per row (instead of a full-row highlight) and
   thin dividers between rows, modeled on a screenshot of Blizzard's own
   Edit Mode settings dropdown.
-- Default font is now Expressway (matching EllesmereUI's own default),
-  via an optional `LibSharedMedia-3.0` lookup — falls back to the stock
-  `GameFont*` templates if nothing on the system has registered that font
-  name. No font file is bundled with this addon. The dropdown's selected-row
-  swatch also now prefers EllesmereUI's *live* accent color over our own
-  static orange guess, when EllesmereUI is present.
+- Default font is now Expressway (matching EllesmereUI's own default). No
+  font file is bundled with this addon — it tries a `LibSharedMedia-3.0`
+  lookup first, then falls back to referencing EllesmereUI's own bundled
+  copy by path if EllesmereUI is installed (same approach LibSharedMedia
+  itself uses: point at a file already on disk rather than ship a copy).
+  Falls back to the stock `GameFont*` templates if neither resolves. The
+  dropdown's selected-row swatch also now prefers EllesmereUI's *live*
+  accent color over our own static orange guess, when EllesmereUI is
+  present.
 
 ### Fixed
 - Crash when opening the window: `SetNormalTexture(nil)` (and the Pushed/

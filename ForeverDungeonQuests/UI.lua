@@ -48,28 +48,48 @@ local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
 local ACCENT_COLOR = { 0.85, 0.55, 0.25 }
 
 -- Default font: Expressway, a common WoW UI font (also EllesmereUI's own
--- default) that isn't bundled with the game itself -- it's normally
--- supplied to LibSharedMedia-3.0 by a font-media addon (e.g. gmFonts) or
--- embedded inside a UI suite like EllesmereUI. We don't ship a font file
--- ourselves, so this only takes effect if something else on the system
--- already registered it; otherwise every FontString below just keeps
--- whatever font its GameFont* template already uses.
+-- default) that isn't bundled with the game itself, and we don't ship a
+-- font file in this addon either (redistributing someone else's bundled
+-- font in a public repo is a licensing question we'd rather not create).
+-- Instead, try two things that reference an *existing* copy rather than
+-- copying one ourselves:
+--   1. LibSharedMedia-3.0, if some other addon has registered "Expressway"
+--      with it.
+--   2. EllesmereUI's own bundled copy, by path -- if EllesmereUI is
+--      installed, this file already exists on disk; we're just pointing
+--      at it, the same way LibSharedMedia itself works under the hood.
+-- If neither resolves, every FontString below just keeps whatever font its
+-- GameFont* template already uses.
+local FONT_CANDIDATES = {
+  "Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway.TTF",
+}
+
 local FONT_PATH
 do
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if LSM then
     FONT_PATH = LSM:Fetch("font", "Expressway", true)
   end
+  if not FONT_PATH and EllesmereUI then
+    FONT_PATH = FONT_CANDIDATES[1]
+  end
 end
+
+-- Set true the first time ApplyDefaultFont finds FONT_PATH doesn't
+-- actually work (e.g. EllesmereUI global existed but the file path guess
+-- was wrong) -- stops retrying a broken path on every single FontString.
+local fontPathFailed = false
 
 -- Swaps a FontString's typeface to FONT_PATH while keeping whatever size/
 -- outline flags it already has from its template. No-op if FONT_PATH
--- wasn't found (see above).
+-- wasn't found or turned out not to work (see above).
 local function ApplyDefaultFont(fontString)
-  if not FONT_PATH then return end
+  if not FONT_PATH or fontPathFailed then return end
   local _, size, flags = fontString:GetFont()
-  if size then
-    fontString:SetFont(FONT_PATH, size, flags)
+  if not size then return end
+  local ok = fontString:SetFont(FONT_PATH, size, flags)
+  if not ok then
+    fontPathFailed = true
   end
 end
 
