@@ -119,15 +119,11 @@ function FDQ:BuildReport(dungeon)
   return rows
 end
 
-function FDQ:OpenDungeonReport(dungeon)
-  local rows = FDQ:BuildReport(dungeon)
-  FDQ:ShowReport(dungeon, rows)
-end
-
 -- Slash command: /fdq [dungeon name]
--- No argument: opens a dungeon picker UI -- this is meant to be checked
--- *before* you queue/travel, not just while standing inside one.
--- With argument: fuzzy-matches dungeon name and jumps straight to its report.
+-- No argument: opens the single-window UI -- this is meant to be checked
+-- *before* you queue/travel, not just while standing inside one. Keeps
+-- whatever dungeon was last selected, if any.
+-- With argument: fuzzy-matches dungeon name and selects it directly.
 SLASH_FDQ1 = "/fdq"
 SlashCmdList["FDQ"] = function(msg)
   msg = msg and msg:trim() or ""
@@ -139,7 +135,7 @@ SlashCmdList["FDQ"] = function(msg)
   end
 
   if msg == "" then
-    FDQ:ShowDungeonList()
+    FDQ:ShowMain()
     return
   end
 
@@ -155,7 +151,7 @@ SlashCmdList["FDQ"] = function(msg)
     return
   end
 
-  FDQ:OpenDungeonReport(matches[1])
+  FDQ:ShowMain(matches[1])
 end
 
 -- NOTE: no auto-popup-on-zone-enter yet. `GetCurrentInstanceDungeon` and

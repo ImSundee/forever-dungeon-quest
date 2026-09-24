@@ -7,7 +7,13 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- Replaced the two-window UI (a dungeon picker + a separate report window,
+  with a "< Dungeons" button to go back) with a single window: a sidebar
+  on the left listing dungeons (filterable by level bracket) and a proper
+  column-aligned quest table (Status / Quest / Lvl / Pickup) on the right
+  for whichever dungeon is selected. Clicking a different dungeon just
+  swaps the table instead of navigating between windows.
 
 ## [0.2.0] - 2026-09-24
 

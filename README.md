@@ -22,48 +22,53 @@ travel there, not just after you're already standing in it.
 ## How to use it
 
 Click the minimap button (the yellow "!" icon on your minimap) any time,
-anywhere — you don't need to be inside a dungeon, or even near one. Clicking
-it opens a **dungeon picker window** listing every supported dungeon (sorted
-by level); clicking it again closes whichever Forever Dungeon Quests window
-is open. Drag the button around the minimap edge to reposition it.
+anywhere — you don't need to be inside a dungeon, or even near one. That
+opens a single window: a **dungeon list on the left** (filtered to a level
+range via the dropdown at the top, defaulting to your character's own
+level) and a **quest table on the right** for whichever dungeon you've
+clicked. Clicking a different dungeon in the list just swaps the table —
+there's no separate "back" screen. Click the minimap button again, or the
+window's close button, to dismiss it. Drag the minimap button around the
+minimap edge to reposition it.
 
-You can also type `/fdq` for the same picker.
+You can also type `/fdq` to open the same window.
 
 | Command | What it does |
 |---|---|
-| `/fdq` | Opens the dungeon picker window. |
-| `/fdq <dungeon name>` | Skips the picker and jumps straight to a dungeon's report by name — e.g. `/fdq deadmines`, `/fdq scarlet` (partial names work). |
-| `/fdq scan` | Forces a rescan of your completed quests. Normally happens automatically; use this if the report looks stale. |
+| `/fdq` | Opens the window (keeping whatever dungeon you last had selected, if any). |
+| `/fdq <dungeon name>` | Opens the window with a specific dungeon selected directly — e.g. `/fdq deadmines`, `/fdq scarlet` (partial names work). |
+| `/fdq scan` | Forces a rescan of your completed quests. Normally happens automatically; use this if the table looks stale. |
 
-If your dungeon-name search matches more than one dungeon, the addon will
-list the matches in chat so you can be more specific. From the quest report
-window, use the **"< Dungeons"** button in the top-left to go back to the
-picker.
+If your dungeon-name search matches more than one dungeon, the addon lists
+the matches in chat instead so you can be more specific.
 
 > **Not implemented yet:** an automatic pop-up warning when you enter a
 > dungeon with missing quests. Right now the addon is purely something you
 > check on your own before heading in — see the Roadmap in
 > [CLAUDE.md](CLAUDE.md) if you're interested in what's planned.
 
-## Reading the report
+## Reading the quest table
 
-Each quest line is tagged with a status:
+Each quest is a row with four columns — **Status**, **Quest**, **Lvl**, and
+**Pickup** (the giver, zone, and `/way` coordinates, which you can paste
+into TomTom or similar) — plus a second line underneath for any
+prerequisite/drop/escort notes. Status is one of:
 
 | Tag | Color | Meaning |
 |---|---|---|
-| **[Missing]** | Red | You don't have this quest and haven't completed it. The line underneath shows the NPC, zone, and coordinates (as a `/way` you can paste into TomTom or similar) where to pick it up, plus any prerequisites or drop requirements. |
-| **[In Log]** | Green | You currently have this quest active. |
-| **[Done]** | Gray | You've already completed this quest. |
+| **Missing** | Red | You don't have this quest and haven't completed it. |
+| **In Log** | Green | You currently have this quest active. |
+| **Done** | Gray | You've already completed this quest. |
 
 Missing quests are always listed first, so the important stuff is at the top.
 
 If a dungeon requires a key or special item to access parts of it (e.g. the
-Shadowforge Key for Blackrock Depths), that's called out at the top of the
-report as a note.
+Shadowforge Key for Blackrock Depths), that's called out just above the
+table as a note.
 
 ## Faction
 
-The report only shows quests for **your faction plus faction-neutral
+The table only shows quests for **your faction plus faction-neutral
 quests** — you won't see Horde-only quests on an Alliance character or vice
 versa. Some quests (like class-specific quest chains, e.g. Paladin-only or
 Mage-only) are shown to everyone but marked in the notes; the addon doesn't
