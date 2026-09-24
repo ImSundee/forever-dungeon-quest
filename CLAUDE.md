@@ -415,6 +415,15 @@ it through a job output instead. So: tagging a release before the
 CurseForge setup above is done just quietly skips the CurseForge job — the
 existing GitHub Release job is unaffected either way.
 
+**Confirmed on the first real upload (v0.3.1, 2026-09-24)**: `packager`
+looks for the addon's `.toc` at the checkout's top level by default, but
+this repo's addon lives one directory down in `ForeverDungeonQuests/` (see
+"Architecture" above — the repo root also holds `CLAUDE.md`, `LICENSE`,
+etc., since this isn't a single-addon-at-root layout). That failed the
+upload with `Could not find an addon TOC file`. Fixed by adding `-t
+ForeverDungeonQuests` to the `args:` line, which is `packager`'s "top-level
+directory of checkout" flag.
+
 **Unverified / worth watching on the first real upload**: `packager`
 auto-detects supported game versions from the `## Interface:` line(s) in
 the `.toc` (see "Game context" above — `16001`, product `wow_classic_beta`).
