@@ -420,9 +420,35 @@ looks for the addon's `.toc` at the checkout's top level by default, but
 this repo's addon lives one directory down in `ForeverDungeonQuests/` (see
 "Architecture" above — the repo root also holds `CLAUDE.md`, `LICENSE`,
 etc., since this isn't a single-addon-at-root layout). That failed the
-upload with `Could not find an addon TOC file`. Fixed by adding `-t
-ForeverDungeonQuests` to the `args:` line, which is `packager`'s "top-level
-directory of checkout" flag.
+upload with `Could not find an addon TOC file`. First attempt: added `-t
+ForeverDungeonQuests` to the `args:` line (`packager`'s "top-level directory
+of checkout" flag) — **not sufficient on its own** (see next).
+
+**Confirmed on the second attempt (v0.3.2, 2026-09-24)**: `-t
+ForeverDungeonQuests` alone still failed, now with `No Git, SVN, or Hg
+checkout found in "ForeverDungeonQuests"`. Read `packager`'s actual
+`release.sh` source to confirm why: once `-t` is given explicitly, it skips
+the auto-detect-by-walking-up-parent-directories logic entirely and just
+checks `[ -d "$topdir/.git" ]` on that literal path — since `.git` lives at
+the repo root, not inside `ForeverDungeonQuests/`, that check always fails.
+There's no `packager` flag or `.pkgmeta` directive that lets `-t` (or the
+TOC search it drives) point at a directory *without* `.git` directly inside
+it; `.pkgmeta`'s `move-folders` can relocate files during packaging but
+doesn't solve the "where's `.git`" problem on its own, and reworking it
+felt riskier than necessary to verify without a live test run.
+
+Fix: before running `packager`, `publish-curseforge` now `git init`s a
+throwaway, self-contained repo **inside** `ForeverDungeonQuests/` itself
+(one commit of the current tree, tagged with `$GITHUB_REF_NAME`) — the main
+checkout's real `.git` at the repo root is left alone. This gives `-t
+ForeverDungeonQuests` a directory that actually satisfies packager's check,
+and since `packager` derives the uploaded version via `git describe --tags`,
+tagging that single commit with the same ref name (e.g. `v0.3.2`) makes it
+resolve to the same version whether it walks the real repo history or this
+synthetic one — the tradeoff is the CurseForge changelog packager
+auto-generates from git log will just show that one synthetic commit
+message rather than real history; switching to a `manual-changelog:` in a
+`.pkgmeta` pointing at `CHANGELOG.md` would fix that if it matters later.
 
 **Unverified / worth watching on the first real upload**: `packager`
 auto-detects supported game versions from the `## Interface:` line(s) in

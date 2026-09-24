@@ -57,6 +57,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Give the addon subdirectory its own git checkout
+        # BigWigsMods/packager requires a .git directory literally inside
+        # whatever "-t topdir" points at - it doesn't search parent
+        # directories the way plain `git` does. This repo's addon lives one
+        # level down in ForeverDungeonQuests/ (the repo root also holds
+        # CLAUDE.md, LICENSE, etc.), so pointing -t there alone fails with
+        # "No Git, SVN, or Hg checkout found". Give packager a minimal,
+        # self-contained repo scoped to just that folder instead, tagged
+        # with the same ref so its git-based version/changelog detection
+        # (git describe --tags) still resolves to the right version.
+        run: |
+          cd ForeverDungeonQuests
+          git init -q
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add -A
+          git commit -q -m "Release ${GITHUB_REF_NAME}"
+          git tag "${GITHUB_REF_NAME}"
+
       - name: Package and publish to CurseForge
         uses: BigWigsMods/packager@v2
         env:
