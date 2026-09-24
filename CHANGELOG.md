@@ -5,6 +5,19 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
+## [0.3.3] - 2026-09-24
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.3)
+
+### Fixed
+- CurseForge upload was still failing after v0.3.2's fix, now with
+  `No Git, SVN, or Hg checkout found in "ForeverDungeonQuests"` —
+  `BigWigsMods/packager` requires `.git` to exist literally inside whatever
+  `-t` points at, and this repo's `.git` is at the root, not inside
+  `ForeverDungeonQuests/`. `publish-curseforge` now `git init`s a throwaway,
+  tagged, single-commit repo inside `ForeverDungeonQuests/` before running
+  `packager` so `-t` has something valid to find.
+
 ## [0.3.2] - 2026-09-24
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.2)
