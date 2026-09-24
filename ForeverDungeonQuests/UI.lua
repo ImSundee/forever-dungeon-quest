@@ -14,6 +14,13 @@
 -- NOTE: written against EllesmereUI's documented SKINNING_API.md (apiVersion
 -- 1). Not yet verified against a live client with EllesmereUI actually
 -- installed -- see CLAUDE.md.
+--
+-- Default font/accent color: everything defaults to Expressway (see
+-- FONT_PATH/ApplyDefaultFont below) via an optional LibSharedMedia-3.0
+-- lookup, and the dropdown's selected-row swatch prefers EllesmereUI's own
+-- live accent color (GetAccentColor()) over our static ACCENT_COLOR guess
+-- when EUI is present -- both are best-effort "match EllesmereUI's own
+-- defaults" per user request, not hard dependencies.
 
 local ADDON_NAME = "Forever Dungeon Quests"
 
@@ -34,10 +41,37 @@ local STATUS_LABEL = {
 -- (dropdown box, its menu, scrollbar thumb).
 local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
 
--- Accent color for the dropdown menu's selected-row indicator square,
--- modeled after the clean flat look of Blizzard's own Edit Mode settings
--- dropdowns (small colored swatch per row instead of a full-row highlight).
+-- Fallback accent color for the dropdown menu's selected-row indicator
+-- square (used when EllesmereUI isn't present to supply a live one --
+-- see GetAccentColor below), modeled after the clean flat look of
+-- Blizzard's own Edit Mode settings dropdowns.
 local ACCENT_COLOR = { 0.85, 0.55, 0.25 }
+
+-- Default font: Expressway, a common WoW UI font (also EllesmereUI's own
+-- default) that isn't bundled with the game itself -- it's normally
+-- supplied to LibSharedMedia-3.0 by a font-media addon (e.g. gmFonts) or
+-- embedded inside a UI suite like EllesmereUI. We don't ship a font file
+-- ourselves, so this only takes effect if something else on the system
+-- already registered it; otherwise every FontString below just keeps
+-- whatever font its GameFont* template already uses.
+local FONT_PATH
+do
+  local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
+  if LSM then
+    FONT_PATH = LSM:Fetch("font", "Expressway", true)
+  end
+end
+
+-- Swaps a FontString's typeface to FONT_PATH while keeping whatever size/
+-- outline flags it already has from its template. No-op if FONT_PATH
+-- wasn't found (see above).
+local function ApplyDefaultFont(fontString)
+  if not FONT_PATH then return end
+  local _, size, flags = fontString:GetFont()
+  if size then
+    fontString:SetFont(FONT_PATH, size, flags)
+  end
+end
 
 -- Column layout for the quest table (x-offset, width) within the right
 -- panel's content frame.
@@ -62,6 +96,20 @@ local selectedDungeon    -- the dungeon currently shown in the right-hand table
 
 local mainFrame
 local skin -- set by EllesmereUI.RegisterSkin's callback, nil if EUI isn't present/enabled
+
+-- Prefers EllesmereUI's own live accent color (so this addon's swatches
+-- match whatever the user actually has EllesmereUI set to) over our own
+-- static ACCENT_COLOR guess. Per-call rather than cached, since EUI's
+-- getters are documented as "don't cache across sessions/long lifetimes."
+local function GetAccentColor()
+  if skin and skin.GetAccentColor then
+    local r, g, b = skin.GetAccentColor()
+    if r then
+      return r, g, b
+    end
+  end
+  return ACCENT_COLOR[1], ACCENT_COLOR[2], ACCENT_COLOR[3]
+end
 
 local function GetDungeonBracket(dungeon)
   local atLevel = (dungeon.levels and dungeon.levels.atLevel) or 1
@@ -117,12 +165,14 @@ local function CreateCleanDropdown(parent, width)
   dd:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
 
   dd.text = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  ApplyDefaultFont(dd.text)
   dd.text:SetPoint("LEFT", 8, 0)
   dd.text:SetPoint("RIGHT", -20, 0)
   dd.text:SetJustifyH("LEFT")
   dd.text:SetWordWrap(false)
 
   dd.arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(dd.arrow)
   dd.arrow:SetPoint("RIGHT", -6, 0)
   dd.arrow:SetTextColor(1, 1, 1)
   dd.arrow:SetText("v") -- ASCII caret, not a unicode triangle -- see CLAUDE.md for why
@@ -171,6 +221,7 @@ local function CreateCleanDropdown(parent, width)
         btn.swatch:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
 
         btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        ApplyDefaultFont(btn.label)
         btn.label:SetPoint("LEFT", btn.swatch, "RIGHT", 6, 0)
 
         -- Thin divider under each row instead of relying on hover
@@ -187,7 +238,8 @@ local function CreateCleanDropdown(parent, width)
       btn.label:SetText(opt.text)
 
       if opt.value == selectedValue then
-        btn.swatch:SetBackdropColor(ACCENT_COLOR[1], ACCENT_COLOR[2], ACCENT_COLOR[3], 1)
+        local r, g, b = GetAccentColor()
+        btn.swatch:SetBackdropColor(r, g, b, 1)
       else
         btn.swatch:SetBackdropColor(0, 0, 0, 0.4)
       end
@@ -292,15 +344,18 @@ local function CreateMainFrame()
   f:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
 
   f.brand = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(f.brand)
   f.brand:SetPoint("TOP", 0, -10)
   f.brand:SetText(ADDON_NAME)
   f.brand:SetTextColor(0.6, 0.6, 0.6)
 
   f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  ApplyDefaultFont(f.title)
   f.title:SetPoint("TOP", f.brand, "BOTTOM", 0, -6)
   f.title:SetText("Dungeon Quests")
 
   f.subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(f.subtitle)
   f.subtitle:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
   f.subtitle:SetText("Pick a dungeon on the left to check its quests.")
 
@@ -340,14 +395,17 @@ local function CreateMainFrame()
   f.rightPanel:SetPoint("BOTTOMRIGHT", -16, 16)
 
   f.dungeonName = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  ApplyDefaultFont(f.dungeonName)
   f.dungeonName:SetPoint("TOPLEFT", 0, 0)
 
   f.dungeonMeta = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  ApplyDefaultFont(f.dungeonMeta)
   f.dungeonMeta:SetPoint("TOPLEFT", f.dungeonName, "BOTTOMLEFT", 0, -4)
   f.dungeonMeta:SetJustifyH("LEFT")
   f.dungeonMeta:SetWidth(640)
 
   f.dungeonNote = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  ApplyDefaultFont(f.dungeonNote)
   f.dungeonNote:SetPoint("TOPLEFT", f.dungeonMeta, "BOTTOMLEFT", 0, -4)
   f.dungeonNote:SetJustifyH("LEFT")
   f.dungeonNote:SetWidth(640)
@@ -360,6 +418,7 @@ local function CreateMainFrame()
 
   local function MakeHeader(col, text)
     local fs = f.colHeaders:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    ApplyDefaultFont(fs)
     fs:SetPoint("TOPLEFT", col.x, 0)
     fs:SetWidth(col.w)
     fs:SetJustifyH("LEFT")
@@ -390,6 +449,7 @@ local function CreateMainFrame()
   end)
 
   f.emptyText = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  ApplyDefaultFont(f.emptyText)
   f.emptyText:SetPoint("TOPLEFT", 4, -4)
   f.emptyText:SetText("Pick a dungeon on the left.")
 
@@ -476,6 +536,7 @@ function FDQ:RefreshSidebar()
 
   if not f.sidebarEmptyText then
     f.sidebarEmptyText = f.sidebarContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(f.sidebarEmptyText)
     f.sidebarEmptyText:SetPoint("TOPLEFT", 2, -2)
     f.sidebarEmptyText:SetText("No dungeons in this level range.")
   end
@@ -488,6 +549,7 @@ local function GetRow(f, index)
     row = {}
     local function MakeCell(col, template)
       local fs = f.tableContent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+      ApplyDefaultFont(fs)
       fs:SetWidth(col.w)
       fs:SetJustifyH("LEFT")
       fs:SetWordWrap(false)
@@ -500,6 +562,7 @@ local function GetRow(f, index)
     row.pickup = MakeCell(COL.pickup)
 
     row.notes = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(row.notes)
     row.notes:SetWidth(COL.pickup.x + COL.pickup.w - COL.name.x)
     row.notes:SetJustifyH("LEFT")
     row.notes:SetWordWrap(false)

@@ -185,6 +185,38 @@ was changed because it looked inconsistent/dated next to a themed UI and
 had no addon branding. The window has a persistent `"Forever Dungeon Quests"`
 brand label above its title.
 
+#### Default font (Expressway) and live accent color
+
+Two more "match EllesmereUI's own look" pieces, both best-effort and
+independent of whether EUI is actually installed:
+
+- **Font**: `FONT_PATH` does an optional `LibStub("LibSharedMedia-3.0", true)`
+  lookup for a font registered under the name `"Expressway"` — a font
+  commonly used as a UI suite's own default (including EllesmereUI's) but
+  not bundled with the game itself; it's normally supplied to
+  LibSharedMedia by a separate font-media addon (e.g. `gmFonts`) or embedded
+  inside a suite like EllesmereUI. **This addon does not ship a font file**
+  — bundling/redistributing a font binary wasn't something to do without
+  being sure of its license, so this only takes effect if something else
+  on the system already registered "Expressway" with LibSharedMedia.
+  `ApplyDefaultFont(fontString)` swaps the typeface on every FontString we
+  create (keeping its template's size/outline flags) — a no-op if
+  `FONT_PATH` is nil. EllesmereUI's own `skin.Font()` call, when present,
+  runs *after* `ApplyDefaultFont` in every call site, so EUI's live font
+  choice still wins over our Expressway attempt when EUI is active.
+- **Accent color**: the dropdown menu's selected-row swatch calls
+  `GetAccentColor()`, which prefers EllesmereUI's live `S.GetAccentColor()`
+  over the static `ACCENT_COLOR` fallback table when `skin` is set. Not
+  cached (re-read every time the dropdown re-renders), per EllesmereUI's own
+  guidance not to cache getter results.
+
+**Unverified**: whether `LibStub("LibSharedMedia-3.0", true)` actually
+resolves to a library with "Expressway" registered in any realistic install
+(depends entirely on what else the user has installed) — if it returns nil
+or the fetch doesn't find that name, everything silently falls back to the
+`GameFont*` template defaults, which is the intended graceful degradation,
+but hasn't been observed either way in-game yet.
+
 **Unverified**: this was written directly against EllesmereUI's
 `SKINNING_API.md` (apiVersion 1) without a live client + EllesmereUI
 installed to test against. First things to check once that's possible: does

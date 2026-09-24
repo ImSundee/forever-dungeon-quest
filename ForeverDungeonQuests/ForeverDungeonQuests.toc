@@ -4,7 +4,7 @@
 ## Author: Sundee
 ## Version: 0.2.0
 ## SavedVariables: FDQ_DB
-## OptionalDeps: EllesmereUI
+## OptionalDeps: EllesmereUI, LibSharedMedia-3.0
 
 Data.lua
 Core.lua
