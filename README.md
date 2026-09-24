@@ -21,9 +21,13 @@ travel there, not just after you're already standing in it.
 
 ## How to use it
 
-Type `/fdq` any time, anywhere — you don't need to be inside a dungeon, or
-even near one. That opens a **dungeon picker window** listing every
-supported dungeon (sorted by level). Click one to see its quest report.
+Click the minimap button (the yellow "!" icon on your minimap) any time,
+anywhere — you don't need to be inside a dungeon, or even near one. Clicking
+it opens a **dungeon picker window** listing every supported dungeon (sorted
+by level); clicking it again closes whichever Forever Dungeon Quests window
+is open. Drag the button around the minimap edge to reposition it.
+
+You can also type `/fdq` for the same picker.
 
 | Command | What it does |
 |---|---|
