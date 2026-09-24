@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: Forever Dungeon Quests
+## Notes: Shows which dungeon quests you have, are missing, or have completed before you queue/enter a dungeon in WoW: Forever.
+## Author: Sundee
+## Version: 0.1.0
+## SavedVariables: FDQ_DB
+
+Data.lua
+Core.lua
+UI.lua
