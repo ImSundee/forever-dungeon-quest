@@ -5,6 +5,26 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
+## [0.3.1] - 2026-09-24
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.1)
+
+### Added
+- CI now publishes releases to CurseForge automatically on a `v*` tag push,
+  via a new `publish-curseforge` job in `release.yml` (using
+  `BigWigsMods/packager`), alongside the existing GitHub Release. Gated on
+  a `CURSEFORGE_PROJECT_ID` repo variable and `CF_API_TOKEN` secret — skips
+  quietly until both are configured, so this doesn't affect the existing
+  GitHub Release job.
+
+### Fixed
+- The `publish-curseforge` job's `if:` condition referenced the `secrets`
+  context directly, which GitHub Actions rejects at workflow-validation
+  time. That showed up as two failed, zero-job runs against ordinary
+  branch/main pushes (not the tag-only trigger firing — GitHub re-validates
+  the workflow file on any push that touches it). Moved the secret-presence
+  check into its own job step with a job output instead.
+
 ## [0.3.0] - 2026-09-24
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.0)
