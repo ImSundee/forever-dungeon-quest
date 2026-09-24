@@ -155,11 +155,17 @@ not gated the same way. Worth remembering for any future code that tries to
 strip textures off Blizzard secure-template buttons: prefer
 `GetXTexture():SetTexture(nil)` over `SetXTexture(nil)`.
 
-**Still unverified**: whether `\226\150\178`/`\226\150\188` (UTF-8 for
-"▲"/"▼") actually render as triangles in Forever's default font rather than
-tofu/blank glyphs, and whether `GetThumbTexture()` behaves as expected --
-neither has broken loudly (no error) so it's unconfirmed rather than known-
-broken.
+**Confirmed broken, then fixed (2026-09-24)**: the unicode triangle glyphs
+(`\226\150\178`/`\226\150\188`, "▲"/"▼") rendered as tofu (a blank box) next
+to the dropdown text in-game -- Forever's default font doesn't have those
+codepoints. Replaced with plain ASCII carets (`^`/`v`), which are guaranteed
+to exist in any font. If a future pass wants prettier arrows than ASCII
+carets, that'd need an actual texture (small triangle image or a stock
+Blizzard icon), not another unicode glyph.
+
+**Still unverified**: whether `GetThumbTexture()` behaves as expected on
+this client -- it hasn't broken loudly (no error) so it's unconfirmed
+rather than known-broken.
 
 ### UI theming: EllesmereUI integration
 

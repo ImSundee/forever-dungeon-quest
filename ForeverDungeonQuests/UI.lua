@@ -120,7 +120,7 @@ local function CreateCleanDropdown(parent, width)
   dd.arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   dd.arrow:SetPoint("RIGHT", -6, 0)
   dd.arrow:SetTextColor(1, 1, 1)
-  dd.arrow:SetText("\226\150\188") -- "▼"
+  dd.arrow:SetText("v") -- ASCII, not a unicode triangle -- see CleanArrowButton note below
 
   dd.menu = CreateFrame("Frame", nil, dd, "BackdropTemplate")
   dd.menu:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -2)
@@ -222,8 +222,11 @@ local function CleanScrollBar(scrollBar)
     btn.arrow:SetText(glyph)
   end
 
-  CleanArrowButton(up, "\226\150\178")   -- "▲"
-  CleanArrowButton(down, "\226\150\188") -- "▼"
+  -- ASCII carets, not unicode triangles (▲/▼): in-game testing showed the
+  -- unicode glyphs render as tofu/a blank box in Forever's default font.
+  -- Carets are guaranteed to exist in any font.
+  CleanArrowButton(up, "^")
+  CleanArrowButton(down, "v")
 
   local thumb = scrollBar.GetThumbTexture and scrollBar:GetThumbTexture()
   if thumb then

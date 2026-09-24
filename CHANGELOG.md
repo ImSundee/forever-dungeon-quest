@@ -35,6 +35,9 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   that reject `nil` as a texture asset. Fixed by clearing the texture
   region directly (`GetNormalTexture():SetTexture(nil)`) instead of going
   through the Button widget's setter.
+- Dropdown/scrollbar arrows rendering as tofu (a blank box) instead of a
+  triangle — the unicode glyphs used weren't in Forever's default font.
+  Replaced with plain ASCII carets (`^`/`v`).
 
 ## [0.2.0] - 2026-09-24
 
