@@ -31,8 +31,13 @@ local STATUS_LABEL = {
 
 -- A plain 8x8 all-white texture bundled with the client, used everywhere
 -- below as a solid-color fill/border instead of any Blizzard-themed art
--- (dropdown box, its menu, scrollbar thumb/arrows).
+-- (dropdown box, its menu, scrollbar thumb).
 local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
+
+-- Accent color for the dropdown menu's selected-row indicator square,
+-- modeled after the clean flat look of Blizzard's own Edit Mode settings
+-- dropdowns (small colored swatch per row instead of a full-row highlight).
+local ACCENT_COLOR = { 0.85, 0.55, 0.25 }
 
 -- Column layout for the quest table (x-offset, width) within the right
 -- panel's content frame.
@@ -120,7 +125,7 @@ local function CreateCleanDropdown(parent, width)
   dd.arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   dd.arrow:SetPoint("RIGHT", -6, 0)
   dd.arrow:SetTextColor(1, 1, 1)
-  dd.arrow:SetText("v") -- ASCII, not a unicode triangle -- see CleanArrowButton note below
+  dd.arrow:SetText("v") -- ASCII caret, not a unicode triangle -- see CLAUDE.md for why
 
   dd.menu = CreateFrame("Frame", nil, dd, "BackdropTemplate")
   dd.menu:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -2)
@@ -155,20 +160,53 @@ local function CreateCleanDropdown(parent, width)
         local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
         highlight:SetAllPoints()
         highlight:SetTexture(WHITE_TEXTURE)
-        highlight:SetVertexColor(1, 1, 1, 0.1)
+        highlight:SetVertexColor(1, 1, 1, 0.06)
+
+        -- Small colored swatch instead of a full-row highlight for the
+        -- selected item, similar to Blizzard's own Edit Mode dropdowns.
+        btn.swatch = CreateFrame("Frame", nil, btn, "BackdropTemplate")
+        btn.swatch:SetSize(12, 12)
+        btn.swatch:SetPoint("LEFT", 6, 0)
+        btn.swatch:SetBackdrop({ bgFile = WHITE_TEXTURE, edgeFile = WHITE_TEXTURE, edgeSize = 1 })
+        btn.swatch:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+
         btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        btn.label:SetPoint("LEFT", 6, 0)
+        btn.label:SetPoint("LEFT", btn.swatch, "RIGHT", 6, 0)
+
+        -- Thin divider under each row instead of relying on hover
+        -- highlighting alone to separate options.
+        btn.divider = dd.menu:CreateTexture(nil, "ARTWORK")
+        btn.divider:SetColorTexture(1, 1, 1, 0.08)
+        btn.divider:SetHeight(1)
+
         dd.menuButtons[i] = btn
       end
       btn:ClearAllPoints()
       btn:SetPoint("TOPLEFT", 2, -((i - 1) * 20) - 2)
       btn:SetPoint("RIGHT", dd.menu, "RIGHT", -2, 0)
       btn.label:SetText(opt.text)
+
+      if opt.value == selectedValue then
+        btn.swatch:SetBackdropColor(ACCENT_COLOR[1], ACCENT_COLOR[2], ACCENT_COLOR[3], 1)
+      else
+        btn.swatch:SetBackdropColor(0, 0, 0, 0.4)
+      end
+
+      btn.divider:ClearAllPoints()
+      btn.divider:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 4, 0)
+      btn.divider:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -4, 0)
+      btn.divider:Show()
+
       btn:SetScript("OnClick", function()
         dd.menu:Hide()
         onSelect(opt.value)
       end)
       btn:Show()
+    end
+
+    -- No divider under the last row -- it already sits on the menu's edge.
+    if dd.menuButtons[#options] then
+      dd.menuButtons[#options].divider:Hide()
     end
 
     dd.menu:SetHeight(#options * 20 + 4)
@@ -184,10 +222,11 @@ local function CreateCleanDropdown(parent, width)
   return dd
 end
 
--- Reskins a ScrollFrame's ScrollBar (from UIPanelScrollFrameTemplate) to a
--- plain flat thumb and simple white text-glyph arrow buttons, instead of
--- Blizzard's beveled gold scroll-arrow textures. Defensive about which
--- pieces actually exist -- untested against a live client, see CLAUDE.md.
+-- Reskins a ScrollFrame's ScrollBar (from UIPanelScrollFrameTemplate) to
+-- just a clean thumb/track -- no up/down arrow buttons at all, per feedback
+-- that even a reskinned arrow was noisier than needed. Defensive about
+-- which pieces actually exist, since this is a legacy Slider-based
+-- ScrollBar and its structure isn't guaranteed identical across clients.
 local function CleanScrollBar(scrollBar)
   if not scrollBar then return end
 
@@ -195,43 +234,22 @@ local function CleanScrollBar(scrollBar)
   local up = scrollBar.ScrollUpButton or (name and _G[name .. "ScrollUpButton"])
   local down = scrollBar.ScrollDownButton or (name and _G[name .. "ScrollDownButton"])
 
-  -- Clearing via SetNormalTexture(nil) etc. throws on this client's secure
-  -- button templates ("Usage: self:SetNormalTexture(asset)") -- nil isn't
-  -- accepted as an asset. Clearing the texture *object* itself works fine.
-  local function ClearTexture(tex)
-    if tex then
-      tex:SetTexture(nil)
-    end
+  -- Explicit checks rather than iterating {up, down}: if `up` is nil,
+  -- ipairs() over a table built from {up, down} stops at index 1 and never
+  -- reaches `down`, since Lua's # operator/ipairs are unreliable with holes.
+  if up then
+    up:Hide()
+    up:EnableMouse(false)
   end
-
-  local function CleanArrowButton(btn, glyph)
-    if not btn then return end
-    ClearTexture(btn:GetNormalTexture())
-    ClearTexture(btn:GetPushedTexture())
-    ClearTexture(btn:GetDisabledTexture())
-    btn:SetHighlightTexture(WHITE_TEXTURE)
-    local highlight = btn:GetHighlightTexture()
-    if highlight then
-      highlight:SetVertexColor(1, 1, 1, 0.12)
-    end
-    if not btn.arrow then
-      btn.arrow = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-      btn.arrow:SetPoint("CENTER")
-      btn.arrow:SetTextColor(1, 1, 1)
-    end
-    btn.arrow:SetText(glyph)
+  if down then
+    down:Hide()
+    down:EnableMouse(false)
   end
-
-  -- ASCII carets, not unicode triangles (▲/▼): in-game testing showed the
-  -- unicode glyphs render as tofu/a blank box in Forever's default font.
-  -- Carets are guaranteed to exist in any font.
-  CleanArrowButton(up, "^")
-  CleanArrowButton(down, "v")
 
   local thumb = scrollBar.GetThumbTexture and scrollBar:GetThumbTexture()
   if thumb then
     thumb:SetColorTexture(1, 1, 1, 0.3)
-    thumb:SetWidth(6)
+    thumb:SetWidth(4)
   end
 end
 

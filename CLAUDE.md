@@ -119,53 +119,53 @@ After in-game feedback that the sidebar's level-bracket dropdown (built on
 `UIPanelScrollFrameTemplate`) looked visually inconsistent with the rest of
 the flat/clean window -- ornate brown-bordered dropdown box with a round
 arrow button, beveled gold scrollbar arrows -- both were replaced with
-hand-rolled equivalents in `UI.lua`, independent of EllesmereUI:
+hand-rolled equivalents in `UI.lua`, independent of EllesmereUI. This went
+through a few iterations based on in-game screenshots; current state:
 
 - `CreateCleanDropdown(parent, width)`: a plain bordered box (built from
   `WHITE_TEXTURE`, a stock 8x8 white texture used as a solid-color fill/
-  border throughout) with a white "▼" text-glyph arrow instead of a
-  texture, and a small flat popout menu (also `WHITE_TEXTURE`-backed) that
-  is **its own frame**, not Blizzard's shared global `DropDownList1` --
-  avoids any risk of that affecting other addons' dropdowns. Exposes
-  `dd:SetOptions(options, selectedValue, onSelect)`.
+  border throughout) with an ASCII `"v"` caret instead of a texture arrow,
+  and a small flat popout menu that is **its own frame**, not Blizzard's
+  shared global `DropDownList1` -- avoids any risk of that affecting other
+  addons' dropdowns. Exposes `dd:SetOptions(options, selectedValue, onSelect)`.
+  Each row in the popout has a small colored swatch (`ACCENT_COLOR`, an
+  orange similar to Blizzard's own Edit Mode settings dropdowns) instead of
+  a full-row highlight for the selected item, plus a thin 1px divider
+  between rows -- explicitly modeled on a screenshot of Blizzard's Edit
+  Mode dropdown the user provided as a reference for "clean."
 - `CleanScrollBar(scrollBar)`: still uses the real `ScrollBar` object from
-  `UIPanelScrollFrameTemplate` (scrolling behavior is unchanged), but clears
-  its up/down button textures and replaces them with white "▲"/"▼"
-  text-glyph FontStrings, and recolors the thumb to a plain translucent
-  white rectangle instead of Blizzard's textured thumb.
+  `UIPanelScrollFrameTemplate` (scrolling behavior is unchanged), but
+  **hides the up/down arrow buttons entirely** (`Hide()` + `EnableMouse(false)`,
+  not just reskinned) and recolors the thumb to a plain translucent white
+  rectangle. Feedback was that even a reskinned arrow glyph was noisier than
+  needed -- just the thumb/track reads as "clean."
 
 This is unconditional now (not gated behind EllesmereUI at all) -- the
 addon's own default look no longer depends on a theming addon being
 installed. `EllesmereUI.RegisterSkin`'s `S.ScrollBar` call is still applied
 on top in `SkinWindowChrome` if EUI is present (for accent-color theming);
-there's no more `S.Dropdown` call since the dropdown isn't a
+there's no `S.Dropdown` call since the dropdown isn't a
 `UIDropDownMenuTemplate` anymore for EUI to recognize.
 
-**Confirmed in-game (2026-09-24)**: `UIPanelScrollFrameTemplate`'s
-`ScrollUpButton`/`ScrollDownButton` do exist under those names on Forever's
-client (`SecureScrollTemplates.xml`), each exposing `.Normal`/`.Pushed`/
-`.Disabled`/`.Highlight` texture regions. However, calling
-`btn:SetNormalTexture(nil)` (and the Pushed/Disabled equivalents) throws
-`bad argument #1 to 'SetNormalTexture' (Usage: self:SetNormalTexture(asset))`
--- these are **secure** button templates and their texture setters reject
-`nil` as an asset. Fixed by calling `btn:GetNormalTexture():SetTexture(nil)`
-instead (clearing the texture *object* directly, rather than going through
-the Button widget's setter) -- that's a plain `Texture:SetTexture()` call,
-not gated the same way. Worth remembering for any future code that tries to
-strip textures off Blizzard secure-template buttons: prefer
-`GetXTexture():SetTexture(nil)` over `SetXTexture(nil)`.
-
-**Confirmed broken, then fixed (2026-09-24)**: the unicode triangle glyphs
-(`\226\150\178`/`\226\150\188`, "▲"/"▼") rendered as tofu (a blank box) next
-to the dropdown text in-game -- Forever's default font doesn't have those
-codepoints. Replaced with plain ASCII carets (`^`/`v`), which are guaranteed
-to exist in any font. If a future pass wants prettier arrows than ASCII
-carets, that'd need an actual texture (small triangle image or a stock
-Blizzard icon), not another unicode glyph.
+**Confirmed in-game (2026-09-24), two issues found and fixed along the way**:
+1. `UIPanelScrollFrameTemplate`'s `ScrollUpButton`/`ScrollDownButton` do
+   exist under those names on Forever's client (`SecureScrollTemplates.xml`).
+   Calling `btn:SetNormalTexture(nil)` (and Pushed/Disabled) throws
+   `bad argument #1 to 'SetNormalTexture' (Usage: self:SetNormalTexture(asset))`
+   -- these are **secure** button templates and their texture setters
+   reject `nil` as an asset. (Moot now that the buttons are just hidden
+   outright, but worth remembering generally: prefer
+   `GetXTexture():SetTexture(nil)` over `SetXTexture(nil)` on secure-template
+   buttons if a future change needs to touch their textures again.)
+2. Unicode triangle glyphs (`▲`/`▼`) rendered as tofu (a blank box) --
+   Forever's default font doesn't have those codepoints. Replaced with
+   plain ASCII (`v` for the dropdown arrow; the scrollbar buttons are hidden
+   now so this only applies to the dropdown).
 
 **Still unverified**: whether `GetThumbTexture()` behaves as expected on
-this client -- it hasn't broken loudly (no error) so it's unconfirmed
-rather than known-broken.
+this client, and whether hiding `ScrollUpButton`/`ScrollDownButton` outright
+(rather than resizing them to zero) leaves an odd gap at the top/bottom of
+the scrollbar track -- hasn't been screenshotted since this latest pass.
 
 ### UI theming: EllesmereUI integration
 

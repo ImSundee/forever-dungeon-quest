@@ -27,6 +27,12 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   and a white text-glyph arrow, no Blizzard textures. Unlike the
   EllesmereUI theming, this look is unconditional — it's the addon's own
   default now, not something only users with a theming addon installed get.
+- Removed the scrollbar's up/down arrow buttons entirely (hidden, not just
+  reskinned) instead of giving them a caret glyph — leaves a clean
+  thumb/track with nothing else. Restyled the dropdown's popout menu with a
+  small accent-colored swatch per row (instead of a full-row highlight) and
+  thin dividers between rows, modeled on a screenshot of Blizzard's own
+  Edit Mode settings dropdown.
 
 ### Fixed
 - Crash when opening the window: `SetNormalTexture(nil)` (and the Pushed/
