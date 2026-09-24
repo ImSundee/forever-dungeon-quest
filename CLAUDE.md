@@ -18,6 +18,11 @@ their faction.
   useful to re-check against): `Thunderz96/forever-addon-kit` (captured API
   baseline + porting notes) and `Atraeau/WoW-Addons` (dev environment + hosted
   API reference at atraeau.github.io/WoW-Addons).
+- **EllesmereUI** (`github.com/EllesmereGaming/EllesmereUI`) is a popular
+  third-party all-in-one UI replacement addon for Forever (an ElvUI-style
+  suite). It ships a public, documented skinning API
+  (`SKINNING_API.md`, apiVersion 1) that lets other addons opt into matching
+  the user's theme/font — see the "UI theming" section below.
 
 ## Data source
 
@@ -49,6 +54,34 @@ ForeverDungeonQuests/
   Core.lua                   -- FDQ: faction/dungeon detection, quest status logic, slash command
   UI.lua                     -- FDQ:ShowReport(): the popup report frame
 ```
+
+### UI theming: EllesmereUI integration
+
+`UI.lua` registers a skin callback via `EllesmereUI.RegisterSkin("ForeverDungeonQuests", fn)`
+(gated behind `if EllesmereUI and EllesmereUI.RegisterSkin then ... end`, so
+it's a no-op with EUI absent or its skinning disabled for this addon). The
+callback receives EUI's `S` skinning table and is stored in the module-local
+`skin` variable; `SkinWindowChrome(f)` and the inline `skin.Font(...)` /
+`skin.Button(...)` calls scattered through frame/line/button creation are all
+guarded by `if skin then`, matching EllesmereUI's documented pattern of
+idempotent, always-safe-to-call primitives.
+
+Without EllesmereUI installed, windows fall back to a plain flat panel
+(`Interface/Tooltips/UI-Tooltip-*`) rather than the ornate gold-trimmed
+`DialogFrame` template used in the very first version of this addon — that
+was changed because it looked inconsistent/dated next to a themed UI and
+had no addon branding. Every window now has a persistent
+`"Forever Dungeon Quests"` brand label above the contextual title.
+
+**Unverified**: this was written directly against EllesmereUI's
+`SKINNING_API.md` (apiVersion 1) without a live client + EllesmereUI
+installed to test against. First things to check once that's possible: does
+`S.Shell` actually look right on our two windows, does `S.Font` correctly
+re-font the dynamically-created quest-line FontStrings (created lazily in
+`GetLine`, potentially before or after the skin callback fires), and does
+re-skinning already-visible frames (the "re-skin whatever's already been
+created" block at the bottom of `UI.lua`) actually work or fight with EUI's
+own re-layout.
 
 ### Quest matching is by **title**, not quest ID — on purpose
 
@@ -121,14 +154,14 @@ just after they're standing inside it. Current flow:
 
 ## Known gaps / next steps
 
-- [ ] **No in-game testing yet.** Nothing in `Core.lua`/`UI.lua` has been run
-      against a real client — there's no WoW: Forever beta access from this
-      dev machine. Priority #1 once beta access exists: confirm
-      `GetTitleForQuestID` behavior (see assumption above), confirm
-      `IsInInstance()`/`GetInstanceInfo()` naming matches the `aliases` in
-      `Data.lua` exactly (instance display names can have subtle punctuation
-      differences), and confirm the TOC's `## Interface: 16001` actually loads
-      without a "this addon is out of date" warning.
+- [ ] **In-game testing has started** (the picker window has been confirmed
+      rendering in-game via a screenshot) but is not exhaustive yet. Still
+      need to confirm: `GetTitleForQuestID` behavior for the completed-quest
+      index (see assumption above), that `IsInInstance()`/`GetInstanceInfo()`
+      naming matches the `aliases` in `Data.lua` exactly, that the
+      EllesmereUI skin integration actually renders correctly with EUI
+      installed and enabled (see "UI theming" above — untested as of this
+      writing), and the flat fallback panel look for players without EUI.
 - [ ] Fill in the `TBD` quest givers in Ruins of Lordaeron once Wowhead (or
       testing) fills them in.
 - [ ] Consider re-scraping the Wowhead page closer to 2026-11-04 launch in

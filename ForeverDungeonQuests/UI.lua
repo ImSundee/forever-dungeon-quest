@@ -1,4 +1,18 @@
--- Forever Dungeon Quests: report window
+-- Forever Dungeon Quests: report + picker windows
+--
+-- Visual integration with EllesmereUI (a third-party UI-replacement addon,
+-- github.com/EllesmereGaming/EllesmereUI): if the user has it installed and
+-- has skinning enabled for this addon, EllesmereUI.RegisterSkin below hands
+-- our frames to its Skins module (`S`) so borders, buttons, scrollbars, and
+-- fonts match the user's own theme/font choice instead of stock Blizzard art.
+-- Without EllesmereUI installed, frames fall back to a plain flat panel
+-- rather than the ornate gold-trimmed dialog box template.
+--
+-- NOTE: written against EllesmereUI's documented SKINNING_API.md (apiVersion
+-- 1). Not yet verified against a live client with EllesmereUI actually
+-- installed -- see CLAUDE.md.
+
+local ADDON_NAME = "Forever Dungeon Quests"
 
 local STATUS_COLOR = {
   completed = "|cff808080", -- gray
@@ -14,31 +28,66 @@ local STATUS_LABEL = {
 
 local frame
 local listFrame
+local skin -- set by EllesmereUI.RegisterSkin's callback, nil if EUI isn't present/enabled
 
-local function CreateFrame_FDQ()
-  local f = CreateFrame("Frame", "FDQ_ReportFrame", UIParent, "BackdropTemplate")
-  f:SetSize(520, 480)
+-- Applies the shared chrome (shell backdrop, close button, brand/title/subtitle
+-- fonts) to a window frame. Safe to call whether or not `skin` is set.
+local function SkinWindowChrome(f)
+  if not skin then return end
+  skin.Shell(f)
+  skin.CloseButton(f.closeButton)
+  skin.Font(f.brand)
+  skin.Font(f.title)
+  skin.Font(f.subtitle)
+  if f.backButton then
+    skin.Button(f.backButton)
+  end
+  if f.scroll and f.scroll.ScrollBar then
+    skin.ScrollBar(f.scroll.ScrollBar)
+  end
+end
+
+local function CreateWindowBase(name, width, height)
+  local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+  f:SetSize(width, height)
   f:SetPoint("CENTER")
   f:SetMovable(true)
   f:EnableMouse(true)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", f.StopMovingOrSizing)
+
+  -- Fallback look for players without EllesmereUI: a plain flat panel
+  -- instead of the ornate DialogFrame parchment/gold-trim template.
   f:SetBackdrop({
-    bgFile = "Interface/DialogFrame/UI-DialogBox-Background",
-    edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32,
-    insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
   })
+  f:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
+  f:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
+  f.brand = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  f.brand:SetPoint("TOP", 0, -10)
+  f.brand:SetText(ADDON_NAME)
+  f.brand:SetTextColor(0.6, 0.6, 0.6)
 
   f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  f.title:SetPoint("TOP", 0, -16)
+  f.title:SetPoint("TOP", f.brand, "BOTTOM", 0, -6)
 
   f.subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.subtitle:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
 
   f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   f.closeButton:SetPoint("TOPRIGHT", -4, -4)
+
+  f:Hide()
+  return f
+end
+
+local function CreateFrame_FDQ()
+  local f = CreateWindowBase("FDQ_ReportFrame", 520, 480)
 
   f.backButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
   f.backButton:SetSize(90, 22)
@@ -50,48 +99,30 @@ local function CreateFrame_FDQ()
   end)
 
   f.scroll = CreateFrame("ScrollFrame", "FDQ_ReportScroll", f, "UIPanelScrollFrameTemplate")
-  f.scroll:SetPoint("TOPLEFT", 16, -70)
+  f.scroll:SetPoint("TOPLEFT", 16, -90)
   f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
 
   f.content = CreateFrame("Frame", nil, f.scroll)
   f.content:SetSize(1, 1)
   f.scroll:SetScrollChild(f.content)
+  f.scroll:SetScript("OnSizeChanged", function(scroll, width)
+    f.content:SetWidth(width)
+  end)
 
   f.lines = {}
 
-  f:Hide()
+  SkinWindowChrome(f)
   return f
 end
 
 local function CreateListFrame_FDQ()
-  local f = CreateFrame("Frame", "FDQ_ListFrame", UIParent, "BackdropTemplate")
-  f:SetSize(320, 480)
-  f:SetPoint("CENTER")
-  f:SetMovable(true)
-  f:EnableMouse(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
-  f:SetBackdrop({
-    bgFile = "Interface/DialogFrame/UI-DialogBox-Background",
-    edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32,
-    insets = { left = 11, right = 12, top = 12, bottom = 11 },
-  })
+  local f = CreateWindowBase("FDQ_ListFrame", 320, 480)
 
-  f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  f.title:SetPoint("TOP", 0, -16)
   f.title:SetText("Choose a Dungeon")
-
-  f.subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  f.subtitle:SetPoint("TOP", f.title, "BOTTOM", 0, -4)
   f.subtitle:SetText("Check quests before you queue or travel.")
 
-  f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-  f.closeButton:SetPoint("TOPRIGHT", -4, -4)
-
   f.scroll = CreateFrame("ScrollFrame", "FDQ_ListScroll", f, "UIPanelScrollFrameTemplate")
-  f.scroll:SetPoint("TOPLEFT", 16, -60)
+  f.scroll:SetPoint("TOPLEFT", 16, -80)
   f.scroll:SetPoint("BOTTOMRIGHT", -34, 16)
 
   f.content = CreateFrame("Frame", nil, f.scroll)
@@ -100,7 +131,7 @@ local function CreateListFrame_FDQ()
 
   f.buttons = {}
 
-  f:Hide()
+  SkinWindowChrome(f)
   return f
 end
 
@@ -113,6 +144,9 @@ local function GetLine(f, index)
     line:SetJustifyH("LEFT")
     line:SetWordWrap(false)
     f.lines[index] = line
+  end
+  if skin then
+    skin.Font(line)
   end
   line:Show()
   return line
@@ -153,6 +187,9 @@ function FDQ:ShowDungeonList()
       button:SetSize(270, 24)
       button:SetPoint("TOPLEFT", 2, -((i - 1) * 28) - 2)
       listFrame.buttons[i] = button
+      if skin then
+        skin.Button(button)
+      end
     end
 
     local atLevel = dungeon.levels and dungeon.levels.atLevel
@@ -180,6 +217,8 @@ function FDQ:ShowReport(dungeon, rows)
   if listFrame then
     listFrame:Hide()
   end
+
+  frame.content:SetWidth(frame.scroll:GetWidth())
 
   frame.title:SetText(dungeon.name)
 
@@ -245,4 +284,24 @@ function FDQ:ShowReport(dungeon, rows)
 
   frame.content:SetHeight(math.max(1, (lineIndex - 1) * 16))
   frame:Show()
+end
+
+if EllesmereUI and EllesmereUI.RegisterSkin then
+  EllesmereUI.RegisterSkin("ForeverDungeonQuests", function(S)
+    skin = S
+    -- Re-skin whatever's already been created (e.g. if the player opened
+    -- the UI once before EUI finished registering skins at PLAYER_LOGIN).
+    if frame then
+      SkinWindowChrome(frame)
+      for _, line in pairs(frame.lines) do
+        skin.Font(line)
+      end
+    end
+    if listFrame then
+      SkinWindowChrome(listFrame)
+      for _, button in pairs(listFrame.buttons) do
+        skin.Button(button)
+      end
+    end
+  end)
 end
