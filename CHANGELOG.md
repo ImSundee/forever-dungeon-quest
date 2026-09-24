@@ -5,6 +5,20 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
+## [0.4.0] - 2026-09-24
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.4.0)
+
+### Added
+- Dungeon entry alert: on entering a dungeon, if you're missing quests for
+  it (for your faction), you now get a chat message and/or a small
+  dismissible pop-up (distinct from the full `/fdq` window), pointing you at
+  `/fdq <dungeon>` to see details. Guarded against re-firing on every
+  `PLAYER_ENTERING_WORLD` inside the same instance visit.
+- Options panel (Blizzard's Interface Options, via the modern Settings API)
+  with a single "Dungeon entry alert" dropdown: Off / Pop-up alert / Chat
+  message / Both. Defaults to pop-up alert.
+
 ## [0.3.3] - 2026-09-24
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.3)

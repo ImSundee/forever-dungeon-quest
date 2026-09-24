@@ -13,7 +13,12 @@ FDQ_DB = FDQ_DB or {}
 local function EnsureDB()
   FDQ_DB.completedTitles = FDQ_DB.completedTitles or {}
   FDQ_DB.completedCount = FDQ_DB.completedCount or 0
+  FDQ_DB.options = FDQ_DB.options or {}
+  -- "off" | "popup" | "chat" | "both" -- see the Options panel (Options.lua)
+  -- and FDQ:CheckEntryAlert below.
+  FDQ_DB.options.entryAlertMode = FDQ_DB.options.entryAlertMode or "popup"
 end
+FDQ.EnsureDB = EnsureDB
 
 -- Rebuilds the completed-quest title index. Only rescans if the number of
 -- completed quest IDs has changed since last scan, since this can be a
@@ -154,9 +159,63 @@ SlashCmdList["FDQ"] = function(msg)
   FDQ:ShowMain(matches[1])
 end
 
--- NOTE: no auto-popup-on-zone-enter yet. `GetCurrentInstanceDungeon` and
--- `FindDungeonByZoneName` above are already what a future "you have
--- uncompleted quests" warning-on-entry feature would use -- see CLAUDE.md
--- TODOs. Deliberately not wired to PLAYER_ENTERING_WORLD right now: the
--- addon's job today is pre-dungeon planning via the /fdq picker, not an
--- in-instance popup.
+-- Entry alert: on entering a dungeon, if the player is missing any quests
+-- for it (their faction only), let them know via a chat line and/or a small
+-- toast (FDQ:ShowEntryAlert, in UI.lua) -- not the full window, which stays
+-- opt-in via /fdq. Mode is player-configurable via the Options panel
+-- (Options.lua) -> FDQ_DB.options.entryAlertMode: "off" | "popup" | "chat" |
+-- "both".
+--
+-- `lastAlertInstanceID` guards against re-alerting every time
+-- PLAYER_ENTERING_WORLD fires inside the *same* instance visit (e.g. a
+-- graveyard release, or a loading screen between instance floors) -- it's
+-- reset once the player leaves the instance, so re-entering the same
+-- dungeon later in the session alerts again.
+local lastAlertInstanceID
+
+function FDQ:CheckEntryAlert()
+  EnsureDB()
+
+  local inInstance, instanceType = IsInInstance()
+  if not inInstance or instanceType ~= "party" then
+    lastAlertInstanceID = nil
+    return
+  end
+
+  local mode = FDQ_DB.options.entryAlertMode
+  if mode == "off" then return end
+
+  local name, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+  if instanceID and instanceID == lastAlertInstanceID then
+    return -- already alerted for this instance visit
+  end
+  lastAlertInstanceID = instanceID
+
+  local dungeon = FDQ:FindDungeonByZoneName(name)
+  if not dungeon then return end
+
+  local rows = FDQ:BuildReport(dungeon)
+  local missingCount = 0
+  for _, row in ipairs(rows) do
+    if row.status == "missing" then
+      missingCount = missingCount + 1
+    end
+  end
+  if missingCount == 0 then return end
+
+  if mode == "chat" or mode == "both" then
+    print(string.format(
+      "|cff33ff99Forever Dungeon Quests|r: %d missing quest%s in %s. Type |cffffcc00/fdq %s|r to view.",
+      missingCount, missingCount == 1 and "" or "s", dungeon.name, dungeon.name
+    ))
+  end
+  if mode == "popup" or mode == "both" then
+    FDQ:ShowEntryAlert(dungeon, missingCount)
+  end
+end
+
+local entryAlertFrame = CreateFrame("Frame")
+entryAlertFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+entryAlertFrame:SetScript("OnEvent", function()
+  FDQ:CheckEntryAlert()
+end)

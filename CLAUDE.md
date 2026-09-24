@@ -52,6 +52,7 @@ ForeverDungeonQuests/
   ForeverDungeonQuests.toc   -- Interface 16001, lists Data/Core/UI/Minimap load order
   Data.lua                   -- FDQ_Dungeons: static quest database (see below)
   Core.lua                   -- FDQ: faction/dungeon detection, quest status logic, slash command
+  Options.lua                -- Blizzard Interface Options panel (Settings API): entry-alert mode
   Waypoint.lua               -- FDQ:SetQuestWaypoint(): TomTom/native arrow integration
   UI.lua                     -- FDQ:ShowMain()/SelectDungeon()/ToggleUI(): the single window
   Minimap.lua                -- draggable minimap button, calls FDQ:ToggleUI()
@@ -363,14 +364,25 @@ the v0.3 single-window rework):
 
 ## Roadmap
 
-- [ ] **Entry warning bar** (explicitly deferred): a small unobtrusive
-      bar/toast when entering a dungeon with missing quests, distinct from
-      the full window. Would reuse `GetCurrentInstanceDungeon()` +
-      `BuildReport()`, hooked to `PLAYER_ENTERING_WORLD`.
+- [x] **Entry warning bar** — shipped in v0.4.0. `FDQ:CheckEntryAlert`
+      (`Core.lua`), hooked to `PLAYER_ENTERING_WORLD`, reuses
+      `FindDungeonByZoneName` + `BuildReport()` to detect missing quests for
+      the current instance and fires a chat message and/or a small
+      dismissible toast (`FDQ:ShowEntryAlert`, `UI.lua`) — not the full
+      window, per the "planning tool, not popup" design note below.
+      `lastAlertInstanceID` (module-local in `Core.lua`) stops it re-firing
+      on every `PLAYER_ENTERING_WORLD` inside the same instance visit (e.g.
+      a release, or a loading screen between floors); it resets once you
+      leave the instance.
 - [x] Minimap button — shipped in v0.2.0.
-- [ ] Options panel (e.g. toggling the minimap button, default level
-      bracket) — currently `/fdq` slash command only, no Blizzard
-      Interface Options integration.
+- [x] **Options panel** — shipped in v0.4.0 (`Options.lua`), but scoped to
+      just the entry-alert mode for now (Off / Pop-up alert / Chat message /
+      Both, default pop-up). Built on the modern retail Settings API
+      (`Settings.RegisterVerticalLayoutCategory` / `Settings.CreateDropdown`)
+      rather than a hand-rolled canvas frame, since Forever runs on the
+      modern client (see "Game context"). Toggling the minimap button or the
+      default level bracket through this panel is still open — not
+      attempted yet, no reason it couldn't reuse the same category.
 
 ## Known gaps / next steps
 
@@ -385,6 +397,17 @@ the v0.3 single-window rework):
       (see "UI theming" above — untested as of this writing), the flat
       fallback panel look for players without EUI, and that the hand-laid-out
       quest table columns (see "UI shape" above) don't clip or overlap.
+- [ ] **Entry alert / Options panel (v0.4.0, untested)**: neither has been
+      confirmed against a live client yet. Specifically need to check:
+      whether `Settings.RegisterVerticalLayoutCategory`/`Settings.CreateDropdown`
+      actually render a working dropdown on Forever's Beta build
+      (`Options.lua` defensively no-ops if `Settings.RegisterVerticalLayoutCategory`
+      is missing, but hasn't been confirmed it *is* present); whether the
+      toast (`FDQ:ShowEntryAlert`, `UI.lua`) is positioned sensibly alongside
+      Blizzard's other on-screen UI (loot toasts, objective tracker) at
+      `TOP, 0, -180`; and whether `lastAlertInstanceID`'s guard against
+      re-firing on every `PLAYER_ENTERING_WORLD` inside one instance visit
+      behaves as expected (e.g. after a graveyard release).
 - [ ] Fill in the `TBD` quest givers in Ruins of Lordaeron once Wowhead (or
       testing) fills them in.
 - [ ] Consider re-scraping the Wowhead page closer to 2026-11-04 launch in
