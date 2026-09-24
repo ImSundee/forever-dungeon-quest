@@ -20,6 +20,13 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 - Level-bracket filter now groups dungeons in 20-level ranges (1-20, 21-40,
   41-60) instead of 10-level ranges, since the wider window has room for
   more dungeons per bracket.
+- Replaced the sidebar's level-bracket dropdown (previously Blizzard's
+  `UIDropDownMenuTemplate` — brown border, round arrow button) and both
+  scrollbars' up/down buttons and thumb (previously Blizzard's beveled gold
+  scroll-arrow art) with a plain hand-rolled flat style: solid-color boxes
+  and a white text-glyph arrow, no Blizzard textures. Unlike the
+  EllesmereUI theming, this look is unconditional — it's the addon's own
+  default now, not something only users with a theming addon installed get.
 
 ## [0.2.0] - 2026-09-24
 

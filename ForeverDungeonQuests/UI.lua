@@ -29,6 +29,11 @@ local STATUS_LABEL = {
   missing = "Missing",
 }
 
+-- A plain 8x8 all-white texture bundled with the client, used everywhere
+-- below as a solid-color fill/border instead of any Blizzard-themed art
+-- (dropdown box, its menu, scrollbar thumb/arrows).
+local WHITE_TEXTURE = "Interface\\Buttons\\WHITE8x8"
+
 -- Column layout for the quest table (x-offset, width) within the right
 -- panel's content frame.
 local COL = {
@@ -91,17 +96,130 @@ local function BracketLabel(bracketMin)
   return bracketMin .. "-" .. (bracketMin + BRACKET_SIZE - 1)
 end
 
-local function LevelDropdown_Initialize(dropdown, level)
-  for _, bracketMin in ipairs(GetAvailableBrackets()) do
-    local info = UIDropDownMenu_CreateInfo()
-    info.text = BracketLabel(bracketMin)
-    info.value = bracketMin
-    info.checked = (bracketMin == selectedBracketMin)
-    info.func = function(self)
-      selectedBracketMin = self.value
-      FDQ:RefreshSidebar()
+-- A flat, hand-rolled dropdown: no Blizzard UIDropDownMenuTemplate art (the
+-- brown-bordered box with the round arrow button). Just a plain bordered
+-- box, a white text-glyph arrow, and a small flat popout list -- avoids
+-- touching Blizzard's shared global DropDownList frames entirely.
+local function CreateCleanDropdown(parent, width)
+  local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
+  dd:SetSize(width, 24)
+  dd:SetBackdrop({
+    bgFile = WHITE_TEXTURE,
+    edgeFile = WHITE_TEXTURE,
+    edgeSize = 1,
+  })
+  dd:SetBackdropColor(0.08, 0.08, 0.08, 1)
+  dd:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
+  dd.text = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  dd.text:SetPoint("LEFT", 8, 0)
+  dd.text:SetPoint("RIGHT", -20, 0)
+  dd.text:SetJustifyH("LEFT")
+  dd.text:SetWordWrap(false)
+
+  dd.arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  dd.arrow:SetPoint("RIGHT", -6, 0)
+  dd.arrow:SetTextColor(1, 1, 1)
+  dd.arrow:SetText("\226\150\188") -- "▼"
+
+  dd.menu = CreateFrame("Frame", nil, dd, "BackdropTemplate")
+  dd.menu:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -2)
+  dd.menu:SetWidth(width)
+  dd.menu:SetBackdrop({
+    bgFile = WHITE_TEXTURE,
+    edgeFile = WHITE_TEXTURE,
+    edgeSize = 1,
+  })
+  dd.menu:SetBackdropColor(0.08, 0.08, 0.08, 0.98)
+  dd.menu:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+  dd.menu:SetFrameStrata("DIALOG")
+  dd.menu:Hide()
+  dd.menuButtons = {}
+
+  dd:SetScript("OnClick", function()
+    dd.menu:SetShown(not dd.menu:IsShown())
+  end)
+
+  -- `options` is a list of {text=, value=}; `onSelect(value)` fires when one
+  -- is clicked (the menu also closes itself first).
+  function dd:SetOptions(options, selectedValue, onSelect)
+    for _, btn in ipairs(dd.menuButtons) do
+      btn:Hide()
     end
-    UIDropDownMenu_AddButton(info, level)
+
+    for i, opt in ipairs(options) do
+      local btn = dd.menuButtons[i]
+      if not btn then
+        btn = CreateFrame("Button", nil, dd.menu)
+        btn:SetHeight(20)
+        local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints()
+        highlight:SetTexture(WHITE_TEXTURE)
+        highlight:SetVertexColor(1, 1, 1, 0.1)
+        btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        btn.label:SetPoint("LEFT", 6, 0)
+        dd.menuButtons[i] = btn
+      end
+      btn:ClearAllPoints()
+      btn:SetPoint("TOPLEFT", 2, -((i - 1) * 20) - 2)
+      btn:SetPoint("RIGHT", dd.menu, "RIGHT", -2, 0)
+      btn.label:SetText(opt.text)
+      btn:SetScript("OnClick", function()
+        dd.menu:Hide()
+        onSelect(opt.value)
+      end)
+      btn:Show()
+    end
+
+    dd.menu:SetHeight(#options * 20 + 4)
+
+    for _, opt in ipairs(options) do
+      if opt.value == selectedValue then
+        dd.text:SetText(opt.text)
+        break
+      end
+    end
+  end
+
+  return dd
+end
+
+-- Reskins a ScrollFrame's ScrollBar (from UIPanelScrollFrameTemplate) to a
+-- plain flat thumb and simple white text-glyph arrow buttons, instead of
+-- Blizzard's beveled gold scroll-arrow textures. Defensive about which
+-- pieces actually exist -- untested against a live client, see CLAUDE.md.
+local function CleanScrollBar(scrollBar)
+  if not scrollBar then return end
+
+  local name = scrollBar.GetName and scrollBar:GetName()
+  local up = scrollBar.ScrollUpButton or (name and _G[name .. "ScrollUpButton"])
+  local down = scrollBar.ScrollDownButton or (name and _G[name .. "ScrollDownButton"])
+
+  local function CleanArrowButton(btn, glyph)
+    if not btn then return end
+    btn:SetNormalTexture(nil)
+    btn:SetPushedTexture(nil)
+    btn:SetDisabledTexture(nil)
+    btn:SetHighlightTexture(WHITE_TEXTURE)
+    local highlight = btn:GetHighlightTexture()
+    if highlight then
+      highlight:SetVertexColor(1, 1, 1, 0.12)
+    end
+    if not btn.arrow then
+      btn.arrow = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+      btn.arrow:SetPoint("CENTER")
+      btn.arrow:SetTextColor(1, 1, 1)
+    end
+    btn.arrow:SetText(glyph)
+  end
+
+  CleanArrowButton(up, "\226\150\178")   -- "▲"
+  CleanArrowButton(down, "\226\150\188") -- "▼"
+
+  local thumb = scrollBar.GetThumbTexture and scrollBar:GetThumbTexture()
+  if thumb then
+    thumb:SetColorTexture(1, 1, 1, 0.3)
+    thumb:SetWidth(6)
   end
 end
 
@@ -165,14 +283,13 @@ local function CreateMainFrame()
   f.sidebar:SetPoint("BOTTOMLEFT", 16, 16)
   f.sidebar:SetWidth(190)
 
-  f.levelDropdown = CreateFrame("Frame", "FDQ_LevelDropdown", f.sidebar, "UIDropDownMenuTemplate")
-  f.levelDropdown:SetPoint("TOPLEFT", -16, 0)
-  UIDropDownMenu_SetWidth(f.levelDropdown, 150)
-  UIDropDownMenu_Initialize(f.levelDropdown, LevelDropdown_Initialize)
+  f.levelDropdown = CreateCleanDropdown(f.sidebar, 170)
+  f.levelDropdown:SetPoint("TOPLEFT", 0, 0)
 
   f.sidebarScroll = CreateFrame("ScrollFrame", "FDQ_SidebarScroll", f.sidebar, "UIPanelScrollFrameTemplate")
   f.sidebarScroll:SetPoint("TOPLEFT", 0, -36)
   f.sidebarScroll:SetPoint("BOTTOMRIGHT", -18, 0)
+  CleanScrollBar(f.sidebarScroll.ScrollBar)
 
   f.sidebarContent = CreateFrame("Frame", nil, f.sidebarScroll)
   f.sidebarContent:SetSize(1, 1)
@@ -233,6 +350,7 @@ local function CreateMainFrame()
   f.tableScroll = CreateFrame("ScrollFrame", "FDQ_TableScroll", f.rightPanel, "UIPanelScrollFrameTemplate")
   f.tableScroll:SetPoint("TOPLEFT", f.headerRule, "BOTTOMLEFT", 0, -6)
   f.tableScroll:SetPoint("BOTTOMRIGHT", 0, 0)
+  CleanScrollBar(f.tableScroll.ScrollBar)
 
   f.tableContent = CreateFrame("Frame", nil, f.tableScroll)
   f.tableContent:SetSize(1, 1)
@@ -277,9 +395,14 @@ function FDQ:RefreshSidebar()
     selectedBracketMin = GetNearestBracket(GetPlayerBracket(), brackets)
   end
 
-  UIDropDownMenu_Initialize(f.levelDropdown, LevelDropdown_Initialize)
-  UIDropDownMenu_SetSelectedValue(f.levelDropdown, selectedBracketMin)
-  UIDropDownMenu_SetText(f.levelDropdown, "Level " .. BracketLabel(selectedBracketMin))
+  local dropdownOptions = {}
+  for _, bracketMin in ipairs(brackets) do
+    table.insert(dropdownOptions, { text = "Level " .. BracketLabel(bracketMin), value = bracketMin })
+  end
+  f.levelDropdown:SetOptions(dropdownOptions, selectedBracketMin, function(value)
+    selectedBracketMin = value
+    FDQ:RefreshSidebar()
+  end)
 
   local filtered = {}
   for _, dungeon in ipairs(FDQ_Dungeons) do

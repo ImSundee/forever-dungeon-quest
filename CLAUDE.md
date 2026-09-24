@@ -112,6 +112,45 @@ client — worth confirming the icon/border textures referenced
 files, since Retail sometimes renames/relocates minimap-related art between
 versions.
 
+### Custom dropdown and scrollbar (no Blizzard widget art)
+
+After in-game feedback that the sidebar's level-bracket dropdown (built on
+`UIDropDownMenuTemplate`) and the scrollbars (built on
+`UIPanelScrollFrameTemplate`) looked visually inconsistent with the rest of
+the flat/clean window -- ornate brown-bordered dropdown box with a round
+arrow button, beveled gold scrollbar arrows -- both were replaced with
+hand-rolled equivalents in `UI.lua`, independent of EllesmereUI:
+
+- `CreateCleanDropdown(parent, width)`: a plain bordered box (built from
+  `WHITE_TEXTURE`, a stock 8x8 white texture used as a solid-color fill/
+  border throughout) with a white "▼" text-glyph arrow instead of a
+  texture, and a small flat popout menu (also `WHITE_TEXTURE`-backed) that
+  is **its own frame**, not Blizzard's shared global `DropDownList1` --
+  avoids any risk of that affecting other addons' dropdowns. Exposes
+  `dd:SetOptions(options, selectedValue, onSelect)`.
+- `CleanScrollBar(scrollBar)`: still uses the real `ScrollBar` object from
+  `UIPanelScrollFrameTemplate` (scrolling behavior is unchanged), but clears
+  its up/down button textures and replaces them with white "▲"/"▼"
+  text-glyph FontStrings, and recolors the thumb to a plain translucent
+  white rectangle instead of Blizzard's textured thumb.
+
+This is unconditional now (not gated behind EllesmereUI at all) -- the
+addon's own default look no longer depends on a theming addon being
+installed. `EllesmereUI.RegisterSkin`'s `S.ScrollBar` call is still applied
+on top in `SkinWindowChrome` if EUI is present (for accent-color theming);
+there's no more `S.Dropdown` call since the dropdown isn't a
+`UIDropDownMenuTemplate` anymore for EUI to recognize.
+
+**Unverified**: none of this has been confirmed in-game yet.
+Specifically: whether `\226\150\178`/`\226\150\188` (UTF-8 for "▲"/"▼")
+actually render as triangles in Forever's default font rather than
+tofu/blank glyphs, and whether `UIPanelScrollFrameTemplate`'s `ScrollBar`
+still exposes `ScrollUpButton`/`ScrollDownButton`/`GetThumbTexture()` the
+same way on Forever's modern client as on live Retail -- `CleanScrollBar`
+nil-checks every piece defensively so it should no-op safely rather than
+error if the structure differs, but the visual result in that case would
+just be the original unmodified scrollbar.
+
 ### UI theming: EllesmereUI integration
 
 `UI.lua` registers a skin callback via `EllesmereUI.RegisterSkin("ForeverDungeonQuests", fn)`
