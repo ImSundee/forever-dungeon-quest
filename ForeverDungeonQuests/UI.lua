@@ -695,22 +695,18 @@ local function LayoutRow(f, index, y, quest, status)
 
   row.pickup:ClearAllPoints()
   row.pickup:SetPoint("TOPLEFT", COL.pickup.x, -y)
-  -- Dungeon-drop quests have no real pickup point -- the "giver" is just the
-  -- mob/source the item drops from, which is already redundant with the
-  -- "Drop" status and the quest's notes line explaining it. Leave the
-  -- column blank for these instead of repeating the same info twice.
-  if quest.dungeonDrop then
-    row.pickup:SetText("")
-  else
-    local pickupText = quest.giver or "?"
-    if quest.location then
-      pickupText = pickupText .. " - " .. quest.location
-    end
-    if quest.coords then
-      pickupText = pickupText .. " /way " .. quest.coords
-    end
-    row.pickup:SetText(pickupText)
+  -- Even for dungeon-drop quests, the Pickup column is the only place that
+  -- says *what drops off which mob* -- the "Drop" status alone doesn't say
+  -- where. quest.giver carries that (e.g. "Grimtotem Satchel (drop from
+  -- Maur Grimtotem)"), so it's shown the same as any other quest.
+  local pickupText = quest.giver or "?"
+  if quest.location then
+    pickupText = pickupText .. " - " .. quest.location
   end
+  if quest.coords then
+    pickupText = pickupText .. " /way " .. quest.coords
+  end
+  row.pickup:SetText(pickupText)
 
   row.status:Show()
   row.name:Show()
