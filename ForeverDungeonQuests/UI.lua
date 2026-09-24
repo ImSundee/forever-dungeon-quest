@@ -518,6 +518,7 @@ local function GetSidebarButton(f, index)
     button = CreateFrame("Button", nil, f.sidebarContent, "UIPanelButtonTemplate")
     button:SetSize(170, 24)
     button:SetPoint("TOPLEFT", 0, -((index - 1) * 28))
+    ApplyDefaultFont(button:GetFontString())
     f.sidebarButtons[index] = button
     if skin then
       skin.Button(button)
