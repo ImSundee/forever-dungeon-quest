@@ -5,7 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-24
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.0)
 
 ### Added
 - Waypoint/arrow button on each quest row with coordinates: sets a TomTom
@@ -16,10 +18,6 @@ when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
   [`Waypoint.lua`](ForeverDungeonQuests/Waypoint.lua) and CLAUDE.md). Hovering
   a disabled button explains why (wrong zone, or no waypoint provider
   installed).
-
-## [0.3.0] - 2026-09-24
-
-[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.0)
 
 ### Changed
 - Replaced the two-window UI (a dungeon picker + a separate report window,
