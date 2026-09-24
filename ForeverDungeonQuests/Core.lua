@@ -55,13 +55,20 @@ function FDQ:GetPlayerFaction()
   return faction or "Neutral"
 end
 
--- status: "completed" | "active" | "missing"
-function FDQ:GetQuestStatus(questName, activeTitles)
-  if activeTitles[questName] then
+-- status: "completed" | "active" | "dungeon-drop" | "missing"
+-- "dungeon-drop" quests start from an item drop inside the dungeon itself
+-- (quest.dungeonDrop in Data.lua) -- the player can't go "pick them up" ahead
+-- of time like a normal quest giver, so showing them as "Missing" is
+-- misleading. They're picked up naturally while running the dungeon.
+function FDQ:GetQuestStatus(quest, activeTitles)
+  if activeTitles[quest.name] then
     return "active"
   end
-  if FDQ_DB.completedTitles[questName] then
+  if FDQ_DB.completedTitles[quest.name] then
     return "completed"
+  end
+  if quest.dungeonDrop then
+    return "dungeon-drop"
   end
   return "missing"
 end
@@ -112,7 +119,7 @@ function FDQ:BuildReport(dungeon)
     if quest.faction == "Neutral" or quest.faction == faction then
       table.insert(rows, {
         quest = quest,
-        status = FDQ:GetQuestStatus(quest.name, activeTitles),
+        status = FDQ:GetQuestStatus(quest, activeTitles),
       })
     end
   end
