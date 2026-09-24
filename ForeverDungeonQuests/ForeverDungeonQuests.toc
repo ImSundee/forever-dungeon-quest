@@ -4,10 +4,11 @@
 ## Author: Sundee
 ## Version: 0.4.0
 ## SavedVariables: FDQ_DB
-## OptionalDeps: EllesmereUI, LibSharedMedia-3.0
+## OptionalDeps: EllesmereUI, LibSharedMedia-3.0, TomTom
 
 Data.lua
 Core.lua
 Options.lua
+Waypoint.lua
 UI.lua
 Minimap.lua

@@ -128,10 +128,11 @@ end
 -- Column layout for the quest table (x-offset, width) within the right
 -- panel's content frame.
 local COL = {
-  status  = { x = 0,   w = 50 },
-  name    = { x = 54,  w = 150 },
-  level   = { x = 208, w = 30 },
-  pickup  = { x = 242, w = 400 },
+  waypoint = { x = 0,   w = 20 },
+  status   = { x = 24,  w = 50 },
+  name     = { x = 78,  w = 150 },
+  level    = { x = 232, w = 30 },
+  pickup   = { x = 266, w = 380 },
 }
 local ROW_HEIGHT = 16
 local NOTE_HEIGHT = 14
@@ -478,6 +479,8 @@ local function CreateMainFrame()
     return fs
   end
   f.headerStatus = MakeHeader(COL.status, "Status")
+  -- The waypoint column is icon-only (a ">" button per row) -- 20px isn't
+  -- wide enough for a readable label, so it's left unheadered.
   f.headerName = MakeHeader(COL.name, "Quest")
   f.headerLevel = MakeHeader(COL.level, "Lvl")
   f.headerPickup = MakeHeader(COL.pickup, "Pickup")
@@ -614,6 +617,25 @@ local function GetRow(f, index)
     row.level = MakeCell(COL.level)
     row.pickup = MakeCell(COL.pickup)
 
+    -- Waypoint/arrow button (TomTom or the client's built-in waypoint --
+    -- see Waypoint.lua). "> " rather than a unicode arrow glyph: Forever's
+    -- default font renders unicode triangles as tofu, see CLAUDE.md.
+    row.waypoint = CreateFrame("Button", nil, f.tableContent, "UIPanelButtonTemplate")
+    row.waypoint:SetSize(COL.waypoint.w, ROW_HEIGHT)
+    row.waypoint:SetText(">")
+    local wfs = row.waypoint:GetFontString()
+    if wfs then
+      wfs:SetPoint("CENTER", 0, 0)
+      ApplyDefaultFont(wfs)
+    end
+    row.waypoint:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetText(self.fdqTooltip or "Set a waypoint.")
+      GameTooltip:Show()
+    end)
+    row.waypoint:SetScript("OnLeave", GameTooltip_Hide)
+    if skin then skin.Button(row.waypoint) end
+
     row.notes = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     ApplyDefaultFont(row.notes)
     row.notes:SetWidth(COL.pickup.x + COL.pickup.w - COL.name.x)
@@ -629,6 +651,33 @@ end
 -- content frame), and fills in the quest's data. Returns the height consumed.
 local function LayoutRow(f, index, y, quest, status)
   local row = GetRow(f, index)
+
+  row.waypoint:ClearAllPoints()
+  row.waypoint:SetPoint("TOPLEFT", COL.waypoint.x, -y)
+  if quest.coords then
+    local provider = FDQ:GetWaypointProvider()
+    local inZone = FDQ:IsPlayerInQuestZone(quest)
+    row.waypoint:Show()
+    if provider and inZone then
+      row.waypoint:Enable()
+      row.waypoint.fdqTooltip = "Set a waypoint to this quest giver" ..
+        (provider == "TomTom" and " (TomTom)." or ".")
+    else
+      row.waypoint:Disable()
+      if not provider then
+        row.waypoint.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
+      else
+        local zone = FDQ:GetQuestZoneName(quest)
+        row.waypoint.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint here.")
+          or "Not available from your current zone."
+      end
+    end
+    row.waypoint:SetScript("OnClick", function()
+      FDQ:SetQuestWaypoint(quest)
+    end)
+  else
+    row.waypoint:Hide()
+  end
 
   row.status:ClearAllPoints()
   row.status:SetPoint("TOPLEFT", COL.status.x, -y)
@@ -707,6 +756,7 @@ function FDQ:SelectDungeon(dungeon)
   end)
 
   for _, row in pairs(f.rows) do
+    row.waypoint:Hide()
     row.status:Hide()
     row.name:Hide()
     row.level:Hide()
@@ -839,6 +889,7 @@ if EllesmereUI and EllesmereUI.RegisterSkin then
         skin.Font(row.name)
         skin.Font(row.level)
         skin.Font(row.pickup)
+        skin.Button(row.waypoint)
       end
     end
   end)
