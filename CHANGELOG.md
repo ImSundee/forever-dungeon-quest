@@ -5,6 +5,17 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
+## [0.3.2] - 2026-09-24
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.2)
+
+### Fixed
+- CurseForge upload was failing with `Could not find an addon TOC file` —
+  `BigWigsMods/packager` looks for the `.toc` at the checkout root by
+  default, but this repo's addon lives in `ForeverDungeonQuests/`. Added
+  `-t ForeverDungeonQuests` to the `publish-curseforge` job so it points at
+  the right directory.
+
 ## [0.3.1] - 2026-09-24
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.3.1)
