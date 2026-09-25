@@ -109,17 +109,27 @@ local function ApplyDefaultFont(fontString)
 end
 
 -- Column layout for the quest table (x-offset, width) within the right
--- panel's content frame.
+-- panel's content frame. The waypoint icon isn't part of this left-aligned
+-- system -- it's pinned to the row's right edge instead (see
+-- WAYPOINT_ICON_SIZE/WAYPOINT_RIGHT_PAD below and its SetPoint("TOPRIGHT",...)
+-- in LayoutRow), so it stays flush with the table's right edge regardless of
+-- how wide the scroll frame ends up being.
 local COL = {
-  waypoint = { x = 0,   w = 20 },
-  status   = { x = 24,  w = 50 },
-  name     = { x = 78,  w = 150 },
-  level    = { x = 232, w = 30 },
-  pickup   = { x = 266, w = 380 },
+  status   = { x = 0,   w = 50 },
+  name     = { x = 54,  w = 150 },
+  level    = { x = 208, w = 30 },
+  pickup   = { x = 242, w = 360 },
 }
 local ROW_HEIGHT = 16
 local NOTE_HEIGHT = 14
 local ROW_GAP = 6
+
+-- The waypoint button's clickable area and the crosshair glyph drawn inside
+-- it (see CreateCrosshairButton below) -- kept as whole pixels throughout so
+-- the corner ticks/center dot don't end up on a half-pixel and blur.
+local WAYPOINT_HIT_SIZE = 20
+local WAYPOINT_ICON_SIZE = 12
+local WAYPOINT_RIGHT_PAD = 6
 
 -- Level-bracket filter for the sidebar dungeon list, so it only shows a
 -- handful of dungeons at a time instead of the full list. Wider brackets
@@ -347,6 +357,58 @@ local function CleanScrollBar(scrollBar)
   end
 end
 
+-- A small hand-drawn crosshair/reticle icon for the waypoint button: four
+-- corner tick-brackets plus a center dot, built entirely from WHITE_TEXTURE
+-- rectangles rather than a Blizzard art asset -- avoids guessing at a stock
+-- texture path that may not exist under that exact name on Forever's client
+-- (see CLAUDE.md's general caution about unverified asset paths), and gives
+-- full control over color for the enabled/hover/disabled states below.
+local function CreateCrosshairButton(parent)
+  local btn = CreateFrame("Button", nil, parent)
+  btn:SetSize(WAYPOINT_HIT_SIZE, ROW_HEIGHT)
+  -- A plain CreateFrame("Button", ...) with no template doesn't get mouse
+  -- interaction for free -- without these two calls OnClick/OnEnter/OnLeave
+  -- never fire (see the same note on row.expandBtn below).
+  btn:EnableMouse(true)
+  btn:RegisterForClicks("LeftButtonUp")
+
+  local icon = CreateFrame("Frame", nil, btn)
+  icon:SetSize(WAYPOINT_ICON_SIZE, WAYPOINT_ICON_SIZE)
+  icon:SetPoint("CENTER")
+  btn.icon = icon
+
+  local tickLen, thickness = 4, 2
+  local function MakeTick(w, h)
+    local t = icon:CreateTexture(nil, "ARTWORK")
+    t:SetTexture(WHITE_TEXTURE)
+    t:SetSize(w, h)
+    return t
+  end
+
+  icon.ticks = {}
+  for _, corner in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+    local h = MakeTick(tickLen, thickness)
+    h:SetPoint(corner, 0, 0)
+    local v = MakeTick(thickness, tickLen)
+    v:SetPoint(corner, 0, 0)
+    table.insert(icon.ticks, h)
+    table.insert(icon.ticks, v)
+  end
+
+  icon.dot = MakeTick(thickness, thickness)
+  icon.dot:SetPoint("CENTER")
+
+  function btn:SetIconColor(r, g, b, a)
+    a = a or 1
+    for _, tex in ipairs(icon.ticks) do
+      tex:SetVertexColor(r, g, b, a)
+    end
+    icon.dot:SetVertexColor(r, g, b, a)
+  end
+
+  return btn
+end
+
 -- Applies the shared chrome (shell backdrop, close button, brand/title/subtitle
 -- fonts) to the window. Safe to call whether or not `skin` is set.
 local function SkinWindowChrome(f)
@@ -468,8 +530,9 @@ local function CreateMainFrame()
     return fs
   end
   f.headerStatus = MakeHeader(COL.status, "Status")
-  -- The waypoint column is icon-only (a ">" button per row) -- 20px isn't
-  -- wide enough for a readable label, so it's left unheadered.
+  -- The waypoint column (a crosshair icon, pinned to each row's right edge --
+  -- see WAYPOINT_ICON_SIZE above) is icon-only and left unheadered, same as
+  -- before it moved from the table's left edge.
   f.headerName = MakeHeader(COL.name, "Quest")
   f.headerLevel = MakeHeader(COL.level, "Lvl")
   f.headerPickup = MakeHeader(COL.pickup, "Pickup")
@@ -607,23 +670,27 @@ local function GetRow(f, index)
     row.pickup = MakeCell(COL.pickup)
 
     -- Waypoint/arrow button (TomTom or the client's built-in waypoint --
-    -- see Waypoint.lua). "> " rather than a unicode arrow glyph: Forever's
-    -- default font renders unicode triangles as tofu, see CLAUDE.md.
-    row.waypoint = CreateFrame("Button", nil, f.tableContent, "UIPanelButtonTemplate")
-    row.waypoint:SetSize(COL.waypoint.w, ROW_HEIGHT)
-    row.waypoint:SetText(">")
-    local wfs = row.waypoint:GetFontString()
-    if wfs then
-      wfs:SetPoint("CENTER", 0, 0)
-      ApplyDefaultFont(wfs)
-    end
+    -- see Waypoint.lua): a hand-drawn crosshair icon, pinned to the row's
+    -- right edge (see LayoutRow). Not a standard textured Button, so it's
+    -- deliberately not passed to skin.Button below -- EllesmereUI's skinning
+    -- expects normal/pushed/highlight texture slots this button doesn't have.
+    row.waypoint = CreateCrosshairButton(f.tableContent)
+    row.waypoint:SetIconColor(1, 1, 1, 0.9)
     row.waypoint:SetScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      if self:IsEnabled() then
+        local r, g, b = GetAccentColor()
+        self:SetIconColor(r, g, b, 1)
+      end
+      GameTooltip:SetOwner(self, "ANCHOR_LEFT")
       GameTooltip:SetText(self.fdqTooltip or "Set a waypoint.")
       GameTooltip:Show()
     end)
-    row.waypoint:SetScript("OnLeave", GameTooltip_Hide)
-    if skin then skin.Button(row.waypoint) end
+    row.waypoint:SetScript("OnLeave", function(self)
+      if self:IsEnabled() then
+        self:SetIconColor(1, 1, 1, 0.9)
+      end
+      GameTooltip_Hide()
+    end)
 
     row.notes = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     ApplyDefaultFont(row.notes)
@@ -638,9 +705,9 @@ local function GetRow(f, index)
     row.expandBtn = CreateFrame("Button", nil, f.tableContent)
     row.expandBtn:SetSize(COL.name.w, ROW_HEIGHT)
     -- Plain CreateFrame("Button", ...) doesn't get mouse interaction for
-    -- free the way template-based buttons (e.g. row.waypoint's
-    -- UIPanelButtonTemplate) do -- without these two calls OnClick never
-    -- fires. This was the actual cause of the expand toggle doing nothing
+    -- free the way template-based buttons do -- without these two calls
+    -- OnClick never fires (see the same note on CreateCrosshairButton
+    -- above). This was the actual cause of the expand toggle doing nothing
     -- in-game.
     row.expandBtn:EnableMouse(true)
     row.expandBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -674,17 +741,19 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
   local row = GetRow(f, index)
 
   row.waypoint:ClearAllPoints()
-  row.waypoint:SetPoint("TOPLEFT", COL.waypoint.x, -y)
+  row.waypoint:SetPoint("TOPRIGHT", f.tableContent, "TOPRIGHT", -WAYPOINT_RIGHT_PAD, -y)
   if quest.coords then
     local provider = FDQ:GetWaypointProvider()
     local inZone = FDQ:IsPlayerInQuestZone(quest)
     row.waypoint:Show()
     if provider and inZone then
       row.waypoint:Enable()
+      row.waypoint:SetIconColor(1, 1, 1, 0.9)
       row.waypoint.fdqTooltip = "Set a waypoint to this quest giver" ..
         (provider == "TomTom" and " (TomTom)." or ".")
     else
       row.waypoint:Disable()
+      row.waypoint:SetIconColor(0.5, 0.5, 0.5, 0.4)
       if not provider then
         row.waypoint.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
       else
@@ -951,7 +1020,6 @@ if EllesmereUI and EllesmereUI.RegisterSkin then
         skin.Font(row.name)
         skin.Font(row.level)
         skin.Font(row.pickup)
-        skin.Button(row.waypoint)
         for _, fs in ipairs(row.prereqFS) do
           skin.Font(fs)
         end

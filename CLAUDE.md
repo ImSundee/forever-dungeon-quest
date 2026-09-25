@@ -441,8 +441,20 @@ event** — see the "planning tool, not popup" decision below.
 
 [`Waypoint.lua`](ForeverDungeonQuests/Waypoint.lua) turns a quest's `coords`
 (the "x, y" percentage strings transcribed from Wowhead, e.g. `"49, 50"`)
-into an on-screen arrow, exposed in `UI.lua` as a small `">"` button on the
-left of any quest row that has coords (see the `COL.waypoint` column).
+into an on-screen arrow, exposed in `UI.lua` as a small crosshair-icon button
+pinned to the **right edge** of any quest row that has coords
+(`CreateCrosshairButton`/`WAYPOINT_ICON_SIZE`/`WAYPOINT_RIGHT_PAD`). Originally
+this was a `">"` text button in a dedicated `COL.waypoint` column on the left
+of the table (`COL` no longer has a `waypoint` entry at all) — moved and
+reskinned after in-game feedback that it read as noisy/misaligned mixed in
+with the other left-aligned columns. The crosshair (four corner tick-brackets
+plus a center dot) is drawn entirely from `WHITE_TEXTURE` rectangles rather
+than a Blizzard art asset, for the same reason the dropdown/scrollbar are
+hand-rolled (see "Custom dropdown and scrollbar" above) — no unverified stock
+texture path to gamble on, and full control over color for its
+enabled/hover/disabled states (`SetIconColor`). Sizes
+(`WAYPOINT_HIT_SIZE`/`WAYPOINT_ICON_SIZE`/tick length/thickness) are kept as
+whole pixels throughout so the ticks/dot don't land on a half-pixel and blur.
 `FDQ:GetWaypointProvider()` picks between two providers, in order:
 
 1. **TomTom**, if installed (`TomTom.AddWaypoint` exists) — most players
@@ -484,6 +496,14 @@ against TomTom's documented API and Blizzard's `C_Map`/`C_SuperTrack` API):
   or Wowhead naming a subzone the client reports differently) would silently
   leave the button disabled with a "travel to X" tooltip that's actually
   wrong. Worth checking against a few real zones once testable.
+
+**Untested (crosshair icon + right-side placement, added after the above)**:
+like the rest of the UI rework, not confirmed in-game yet — specifically
+whether `pickup.w` (`COL.pickup`, `UI.lua`) leaves enough clearance before
+the icon for the longest `giver`/`location`/`coords` strings in `Data.lua`
+without visually colliding, and whether the hand-drawn tick/dot crosshair
+actually reads as a "set waypoint" affordance at this size versus needing a
+label/tooltip-only hint the first time a player sees it.
 
 ### UI flow: planning tool, not an in-instance popup
 
