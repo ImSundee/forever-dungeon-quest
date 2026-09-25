@@ -42,6 +42,31 @@ local STATUS_LABEL = {
   missing = "Missing",
 }
 
+-- Sidebar level-number color, keyed off the same hard/medium/atLevel/easy
+-- brackets already in Data.lua (rather than inventing separate absolute-
+-- level cutoffs) -- so the color always matches whichever difficulty band
+-- the player's own level currently falls in for that dungeon:
+--   gray:   at or above "easy"   -- trivial, over-leveled
+--   green:  at or above "atLevel" (but below "easy")
+--   orange: at or above "medium" (but below "atLevel")
+--   red:    below "medium"       -- "hard" band or lower
+local function GetLevelColor(dungeon)
+  local levels = dungeon.levels
+  if not levels or not levels.atLevel then
+    return "|cffaaaaaa"
+  end
+  local playerLevel = UnitLevel("player") or 1
+  if levels.easy and playerLevel >= levels.easy then
+    return "|cff808080" -- gray
+  elseif playerLevel >= levels.atLevel then
+    return "|cff33ff33" -- green
+  elseif levels.medium and playerLevel >= levels.medium then
+    return "|cffff9900" -- orange
+  else
+    return "|cffff4444" -- red
+  end
+end
+
 -- A plain 8x8 all-white texture bundled with the client, used everywhere
 -- below as a solid-color fill/border instead of any Blizzard-themed art
 -- (dropdown box, its menu, scrollbar thumb).
@@ -636,7 +661,7 @@ function FDQ:RefreshSidebar()
     local atLevel = dungeon.levels and dungeon.levels.atLevel
     local label = dungeon.name
     if atLevel then
-      label = label .. "  |cffaaaaaa(" .. atLevel .. ")|r"
+      label = label .. "  " .. GetLevelColor(dungeon) .. "(" .. atLevel .. ")|r"
     end
     button:SetText(label)
     if selectedDungeon == dungeon then
