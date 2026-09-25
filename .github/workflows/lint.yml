@@ -1,0 +1,132 @@
+name: WoW API Lint
+
+# Runs LuaLS (lua-language-server) diagnostics against the addon's Lua files,
+# typed against Ketho/vscode-wow-api's community WoW API annotations
+# (https://github.com/Ketho/vscode-wow-api) -- the same annotations that
+# extension feeds into VS Code's IntelliSense, run here headlessly so every
+# push/PR gets checked, not just contributors who happen to have the
+# extension installed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Pinned so a new lua-language-server release can't silently change what
+# passes/fails; bump deliberately and re-verify.
+env:
+  LUALS_VERSION: "3.13.9"
+
+jobs:
+  wow-api-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout WoW API annotations (Ketho/vscode-wow-api)
+        uses: actions/checkout@v4
+        with:
+          repository: Ketho/vscode-wow-api
+          submodules: true
+          path: .wow-api-annotations
+
+      - name: Install lua-language-server
+        run: |
+          curl -sL "https://github.com/LuaLS/lua-language-server/releases/download/${LUALS_VERSION}/lua-language-server-${LUALS_VERSION}-linux-x64.tar.gz" -o lls.tar.gz
+          mkdir -p "$HOME/lua-language-server"
+          tar -xzf lls.tar.gz -C "$HOME/lua-language-server"
+          echo "$HOME/lua-language-server/bin" >> "$GITHUB_PATH"
+
+      - name: Write LuaLS config
+        # Generated rather than checked in: this only exists for this CI
+        # run (a contributor running the Ketho VS Code extension locally
+        # gets the same annotations managed by the extension itself
+        # instead -- see CLAUDE.md).
+        #
+        # All paths here -- including this config file's own path passed
+        # to --configpath below -- must be absolute. --configpath resolves
+        # a relative path against the --check target directory
+        # (ForeverDungeonQuests/), not the cwd it's invoked from; a
+        # relative path here silently fails to load any config at all
+        # (confirmed by testing both ways), which means workspace.library
+        # never loads either -- every Blizzard global then reports as
+        # "undefined", drowning out real findings instead of catching them.
+        run: |
+          cat > "$GITHUB_WORKSPACE/.luarc.ci.json" <<EOF
+          {
+            "runtime.version": "Lua 5.1",
+            "runtime.builtin": { "io": "disable", "os": "disable" },
+            "workspace.library": [
+              "$GITHUB_WORKSPACE/.wow-api-annotations/Annotations/Core",
+              "$GITHUB_WORKSPACE/.wow-api-annotations/Annotations/FrameXML"
+            ],
+            "workspace.checkThirdParty": false,
+            "diagnostics.globals": [
+              "FDQ",
+              "FDQ_DB",
+              "FDQ_Dungeons",
+              "FDQ_PrereqInfo",
+              "TomTom",
+              "LibStub",
+              "EllesmereUI",
+              "CLOSE"
+            ],
+            "diagnostics.disable": ["lowercase-global"]
+          }
+          EOF
+
+      - name: Run WoW API diagnostics
+        id: check
+        run: |
+          lua-language-server \
+            --check="$GITHUB_WORKSPACE/ForeverDungeonQuests" \
+            --configpath="$GITHUB_WORKSPACE/.luarc.ci.json" \
+            --checklevel=Warning \
+            --check_format=json \
+            --check_out_path=check-results.json || true
+
+          if [ ! -f check-results.json ]; then
+            echo '{}' > check-results.json
+          fi
+
+          python3 - <<'PYEOF'
+          import json, os
+
+          with open("check-results.json") as f:
+              results = json.load(f)
+
+          total = sum(len(v) for v in results.values())
+          errors = sum(1 for v in results.values() for d in v if d.get("severity") == 1)
+
+          summary = ["# WoW API lint (Ketho/vscode-wow-api annotations)", ""]
+          if total == 0:
+              summary.append("No issues found.")
+          else:
+              summary.append(f"{total} finding(s) across {len(results)} file(s) ({errors} at Error severity).")
+              summary.append("")
+              summary.append("| File | Line | Severity | Code | Message |")
+              summary.append("|---|---|---|---|---|")
+              sev_name = {1: "Error", 2: "Warning", 3: "Info", 4: "Hint"}
+              for uri, diags in results.items():
+                  path = uri.replace("file://", "").split("/ForeverDungeonQuests/", 1)[-1]
+                  path = "ForeverDungeonQuests/" + path
+                  for d in diags:
+                      line = d["range"]["start"]["line"] + 1
+                      sev = sev_name.get(d.get("severity"), "?")
+                      code = d.get("code", "")
+                      msg = d["message"].splitlines()[0].replace("|", "\\|")
+                      summary.append(f"| {path} | {line} | {sev} | {code} | {msg} |")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(summary) + "\n")
+
+          # Only Error-severity findings fail the build. Warning-level
+          # findings are surfaced above for visibility but don't block --
+          # the community annotations have known gaps (e.g. real Blizzard
+          # globals/templates not yet covered) that would otherwise block
+          # every push on noise unrelated to this addon's own code. See
+          # CLAUDE.md for the specific false positives this was checked
+          # against before landing.
+          if errors > 0:
+              raise SystemExit(1)
+          PYEOF
