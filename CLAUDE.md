@@ -152,13 +152,12 @@ crosshair buttons elsewhere in this file.
 
 An issue form template,
 [`.github/ISSUE_TEMPLATE/missing_quest.yml`](.github/ISSUE_TEMPLATE/missing_quest.yml),
-asks reporters for the dungeon, quest name, what's wrong (dropdown: missing
-entirely / wrong giver-location / wrong coords / wrong faction / wrongly
-shown as available / bad prereq chain / other), details, coords, and an
-optional source link — so a report arrives with enough to act on instead of
-a bare "quest X is wrong." `config.yml` alongside it keeps GitHub's blank
-"open a plain issue" option available too, rather than forcing every issue
-through the template.
+keeps the ask deliberately minimal — just which dungeon and an optional
+Wowhead link — rather than a long form: enough to go look it up and fix it
+from there, without asking reporters to fill in details they'd otherwise
+have to dig for. `config.yml` alongside it keeps GitHub's blank "open a
+plain issue" option available too, rather than forcing every issue through
+the template.
 
 **Untested**: like the rest of the UI, not yet confirmed in-game —
 specifically that the footer link doesn't visually collide with the
