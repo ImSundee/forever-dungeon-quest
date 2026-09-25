@@ -367,18 +367,28 @@ and skip the title index entirely for that entry, so a duplicate title
 elsewhere can't produce a false "completed". Entries without `id` are
 unaffected — this is purely additive.
 
-**Getting the real IDs**: Wowhead is unreachable from this dev environment
-(the network egress proxy blocks `www.wowhead.com` outright, and `WebSearch`
-alone can't reliably tell five same-titled quests apart), so the actual
-per-step IDs for the chains in issue #15 could not be filled in from here.
-`/fdq idscan <text>` (`Core.lua`) is the stopgap: run it in-game while a
-candidate quest is active, or after completing it, and it prints the title +
-real `questID` for every match in the player's own active/completed quests
-— paste that into the `id`/`{name=,id=}` field. The `Data.lua` note for
-every duplicate-title chain from issue #15 now points back at this. Doing
-this for a chain also confirms the addon's other open assumption — whether
-Forever's own Beta quest IDs for these quests match Classic's — since
-`idscan` reads them straight from the live client rather than from Wowhead.
+**Getting the real IDs**: originally blocked — the network egress proxy in
+this dev environment blocks `www.wowhead.com` outright, and `WebSearch`
+alone can't reliably tell five same-titled quests apart, so the actual
+per-step IDs for the chains in issue #15 couldn't be filled in from a cloud
+session. **Resolved (2026-09-25)**, running locally with the
+`claude-in-chrome` MCP tool available: Wowhead's Classic quest pages *are*
+reachable from a local machine, and each duplicate-titled chain was traced
+step-by-step via its `quest=<id>` pages' Start/End NPC and
+Series/Requires/Unlocks fields (searching `wowhead.com/classic/search?q=`
+for a title reliably surfaces every quest ID sharing it). All ~12 chains
+from the "Blocked by duplicate-titled steps" list, plus the two open
+"unverified link" cases ("Blood of the Black Dragon Champion"'s uncertain
+final step — turned out to be a real, literally-titled quest, `"Ascension..."`
+with a trailing ellipsis, not a transcription error — and
+"Drakefire Amulet"/"Jail Break!"'s chain lengths, corrected from 14/9 to the
+verified 15/11), are now filled in with real `id`/`{name=,id=}` values in
+`Data.lua`. `/fdq idscan <text>` (`Core.lua`) remains available as the
+in-game fallback for future chains research can't reach, and — since these
+IDs came from Classic's Wowhead DB, not a live Forever client — **still
+unverified**: whether Forever's own Beta quest IDs for these specific quests
+match Classic's 1:1. Worth a spot-check via `/fdq idscan` once beta access
+exists; if any drift, the fix is just updating that one `id` value.
 
 ### "Dungeon Drop" status for in-instance drop-starters
 
@@ -554,6 +564,36 @@ than "grayed out but present." Two fixes:
   enabled-state color (white) and the `OnEnter`/`OnLeave` accent-color hover
   swap are unchanged -- both scripts already gate the hover-color swap on
   `self:IsEnabled()`, so they don't touch the new disabled color.
+
+**`notes` text trimmed to stop duplicating the `prereqs` list (2026-09-25)**:
+once a quest has a full `prereqs` array, the `[+]`/`[-]` expandable list
+already shows every step and its own status -- a `notes` field that just
+re-describes the same chain in prose (`"Chain of 7 quests, starting with
+X, through six more quests all titled Y"`) is pure noise once you can
+expand and see the literal steps. Prompted by a user screenshot showing the
+`Hidden Enemies` note running off the edge of its row, unread and
+uninformative. Every `Data.lua` entry that has a `prereqs` array had its
+`notes` re-audited: pure `"Chain of N starting with X"` boilerplate was
+removed outright (the entry's own `prereqs` array already says this), and
+notes with a genuine non-obvious caveat -- item requirements
+(`"Requires the Extra-Dimensional Ghost Revealer..."`), faction forks,
+"which of two similarly-named chains is this," step-ordering exceptions
+("all three required, in any order") -- were kept but trimmed down to just
+that caveat, dropping the redundant chain-description lead-in. Also
+dropped: dev-facing commentary that had leaked into player-facing text
+during the issue #15 research pass above (`"(verified via Wowhead, issue
+#15)"`, `"corrected from an earlier estimate of 9"` -- these belong in a
+commit message or this file, not a quest's in-game tooltip).
+
+Root cause of the "doesn't display fully" complaint, fixed separately:
+`row.notes` had a fixed `SetWidth` but, like the prereq lines before the
+two-column rework above, `SetWordWrap(false)` doesn't reliably clip
+overflow at that width -- so a long note could still run past the table's
+right edge. `LayoutRow` (`UI.lua`) now runs `quest.notes` through the same
+`TruncateToWidth()` helper the prereq lines use, sized dynamically off
+`f.tableContent:GetWidth()` so it can't overlap the crosshair regardless of
+window width. With the content trim above this should rarely actually
+trigger now, but it's a real guarantee instead of a hope.
 
 `FDQ_PrereqInfo` was populated by researching each prereq name individually
 via web search (not a live browser pull -- Wowhead itself is unreachable
@@ -803,21 +843,28 @@ the v0.3 single-window rework):
 - [x] **ID-based matching opt-in for duplicate-titled chains** — shipped:
       `Core.lua` now lets a single quest or `prereqs` entry match by
       `id = <questID>` instead of title (see "Quest matching is by title"
-      above), and `/fdq idscan <text>` helps find real questIDs in-game.
-      This unblocks the duplicate-title chains from issue #15 in principle,
-      but **the actual per-step IDs still need to be filled in** — Wowhead
-      is unreachable from this dev environment (network egress blocks it),
-      so none of the ~12 duplicate-title chains below have real `id` values
-      yet, just a `Data.lua` note pointing at `/fdq idscan`. Whoever has
-      live Beta access needs to run each chain and paste in the IDs; the
-      faction-forked/unverified-link chains in issue #15 aren't a duplicate-
-      title problem and don't need this at all.
-- [ ] **~16 chains still can't be fully tracked**, blocked by duplicate
-      quest titles within the chain (mitigated by the ID-based opt-in above,
-      but not yet filled in with real IDs), a faction-forked step, or an
-      unverified/ambiguous link found during research. Full punch list,
-      organized by cause and with suggested next steps, tracked in
-      [issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15).
+      above). **Real IDs filled in (2026-09-25)**: all ~12 duplicate-title
+      chains from issue #15, traced live against Wowhead's Classic quest DB
+      via `claude-in-chrome` now that this dev environment runs locally
+      (see "Getting the real IDs" above) — `Data.lua` entries now carry real
+      `id`/`{name=,id=}` values instead of just a note pointing at
+      `/fdq idscan`. Two chain-length notes were corrected in the process
+      (`Jail Break!` 9→11, `Drakefire Amulet` 14→15 prereq steps), and the
+      previously-uncertain final step of `Blood of the Black Dragon Champion`
+      is now filled in as `"Ascension..."` (a real quest title, ellipsis and
+      all). `/fdq idscan <text>` remains available for any future gaps.
+      **Still unverified**: whether these Classic-sourced IDs match Forever's
+      own Beta quest IDs 1:1 — no beta access from this dev environment
+      either way, so this is unconfirmed against a live client like
+      everything else in this file.
+- [x] **~14 of the ~16 chains from issue #15 are now fully trackable** —
+      the duplicate-title chains (see above) and the "Blood of the Black
+      Dragon Champion" unverified-link case are resolved. Still open: the
+      genuinely faction-forked steps (`Ramstein`, `Dead Man's Plea`) and
+      `A Taste of Flame` (gated by an item drop, not a trackable quest edge)
+      — these aren't duplicate-title or research-access problems, see
+      [issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15)
+      for why they're a different kind of blocked.
 
 ## Releases
 

@@ -1021,7 +1021,11 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
   if quest.notes then
     row.notes:ClearAllPoints()
     row.notes:SetPoint("TOPLEFT", COL.name.x, -(y + ROW_HEIGHT))
-    row.notes:SetText(quest.notes)
+    -- Same overflow guard as the prereq lines below (TruncateToWidth) --
+    -- a fixed SetWidth alone doesn't reliably clip WordWrap(false) text,
+    -- so long notes could run past the table's right edge uncut.
+    local notesMaxWidth = f.tableContent:GetWidth() - COL.name.x - (WAYPOINT_HIT_SIZE + WAYPOINT_RIGHT_PAD + 4)
+    row.notes:SetText(TruncateToWidth(row.notes, quest.notes, notesMaxWidth))
     row.notes:Show()
     height = height + NOTE_HEIGHT
   else
