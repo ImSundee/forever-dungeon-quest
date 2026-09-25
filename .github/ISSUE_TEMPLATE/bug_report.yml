@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in the addon itself is broken (UI, Lua error, waypoints, etc — not quest data).
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you expect, and what actually happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the addon with /fdq
+        2. ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Lua error (if any)
+      description: Paste the full error text, e.g. from BugSack/BugGrabber if you have it.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Addon version
+      description: The version shown on the addon's login screen, or in `ForeverDungeonQuests.toc`.
+      placeholder: e.g. 0.4.0
+    validations:
+      required: false

@@ -68,12 +68,18 @@ local function GetLevelColor(dungeon)
 end
 
 -- "Missing a quest?" footer link (bottom-right corner of the main window):
--- opens a small copyable-URL popup pointed at the GitHub issues page. WoW's
--- UI has no way to open a real browser link from inside the client, so this
--- is the standard addon pattern -- a StaticPopup with a pre-selected,
--- read-only-in-practice EditBox the player Ctrl+C's out of -- rather than a
--- dead hyperlink or a raw chat print.
-local ISSUES_URL = "https://github.com/ImSundee/forever-dungeon-quest/issues"
+-- opens a small copyable-URL popup pointed straight at the missing-quest
+-- issue template (GitHub's `?template=` deep-link query param, not just the
+-- bare issues list -- the button is specifically for reporting quest data,
+-- so it should land the player on that form pre-selected rather than making
+-- them pick it themselves; the bug_report.yml template exists for
+-- addon-itself bugs but isn't linked from in-game since there's no
+-- in-game "something broke" button, just this one). WoW's UI has no way to
+-- open a real browser link from inside the client, so this is the standard
+-- addon pattern -- a StaticPopup with a pre-selected, read-only-in-practice
+-- EditBox the player Ctrl+C's out of -- rather than a dead hyperlink or a
+-- raw chat print.
+local ISSUES_URL = "https://github.com/ImSundee/forever-dungeon-quest/issues/new?template=missing_quest.yml"
 
 StaticPopupDialogs["FDQ_MISSING_QUEST_LINK"] = {
   text = "Report a missing or incorrect quest on GitHub:",
