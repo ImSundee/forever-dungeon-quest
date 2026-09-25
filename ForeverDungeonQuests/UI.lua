@@ -759,6 +759,15 @@ local function GetRow(f, index)
     row.expandBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.expandBtn:Hide()
 
+    -- Thin divider drawn under each quest's full row (including its notes
+    -- and any expanded prereq lines) -- added after in-game feedback that
+    -- rows, especially expanded ones with several prereq lines, ran
+    -- together with no visual separation between one quest and the next.
+    row.divider = f.tableContent:CreateTexture(nil, "ARTWORK")
+    row.divider:SetTexture(WHITE_TEXTURE)
+    row.divider:SetHeight(1)
+    row.divider:SetVertexColor(1, 1, 1, 0.12)
+
     -- Lazily-grown pools of prereq status lines shown under a row when
     -- expanded -- count varies per quest, unlike the fixed cells above. Two
     -- parallel pools (name+status, giver/location) instead of one combined
@@ -879,7 +888,7 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
         (provider == "TomTom" and " (TomTom)." or ".")
     else
       row.waypoint:Disable()
-      row.waypoint:SetIconColor(0.5, 0.5, 0.5, 0.4)
+      row.waypoint:SetIconColor(0.85, 0.45, 0.2, 0.9)
       if not provider then
         row.waypoint.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
       else
@@ -1005,7 +1014,7 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
             (provider == "TomTom" and " (TomTom)." or ".")
         else
           waypointBtn:Disable()
-          waypointBtn:SetIconColor(0.5, 0.5, 0.5, 0.4)
+          waypointBtn:SetIconColor(0.85, 0.45, 0.2, 0.9)
           if not provider then
             waypointBtn.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
           else
@@ -1041,6 +1050,11 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
       btn:Hide()
     end
   end
+
+  row.divider:ClearAllPoints()
+  row.divider:SetPoint("TOPLEFT", COL.name.x, -(y + height + (ROW_GAP / 2)))
+  row.divider:SetWidth(math.max(1, f.tableContent:GetWidth() - COL.name.x))
+  row.divider:Show()
 
   return height + ROW_GAP
 end
@@ -1087,6 +1101,7 @@ function FDQ:SelectDungeon(dungeon)
     row.pickup:Hide()
     row.notes:Hide()
     row.expandBtn:Hide()
+    row.divider:Hide()
     for _, fs in ipairs(row.prereqNameFS) do
       fs:Hide()
     end

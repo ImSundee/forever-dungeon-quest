@@ -479,6 +479,31 @@ explicitly calls `btn:SetFrameLevel(parent:GetFrameLevel() + 2)` so the
 crosshair always draws above any FontString it happens to sit near,
 belt-and-suspenders on top of the truncation fix.
 
+**Still not reading well after that rework, two more passes (2026-09-25)**:
+user screenshot feedback after the two-column change above said it "doesn't
+change anything, still looks the same" and that the crosshair "system" was
+entirely missing for prereq lines. The column split *was* actually landing
+(giver/location was aligned under Pickup in the follow-up screenshot), so
+the real complaints were: (1) nothing visually separates one quest's block
+(row + notes + expanded prereqs) from the next, so a multi-line expanded
+entry reads as a wall of text, and (2) the disabled/wrong-zone crosshair
+state was colored `(0.5, 0.5, 0.5, 0.4)` -- pale gray at 40% alpha against
+this addon's near-black backdrop, which is essentially invisible rather
+than "grayed out but present." Two fixes:
+- A pooled 1px divider (`row.divider`, `WHITE_TEXTURE` at 12% white) is now
+  drawn under every top-level quest row -- spanning from `COL.name.x` to
+  the table's current right edge, positioned at `y + height + ROW_GAP/2`
+  (i.e. after that row's own notes/expanded-prereq lines have already added
+  to `height`, so the line falls in the gap before the *next* quest starts,
+  not between a quest and its own prereq detail).
+- The disabled-state icon color on both `row.waypoint` and the prereq
+  `waypointBtn` changed from `(0.5, 0.5, 0.5, 0.4)` to `(0.85, 0.45, 0.2,
+  0.9)` -- a dim orange at near-full opacity, readable as "here, but you
+  can't use it right now" instead of disappearing into the background. The
+  enabled-state color (white) and the `OnEnter`/`OnLeave` accent-color hover
+  swap are unchanged -- both scripts already gate the hover-color swap on
+  `self:IsEnabled()`, so they don't touch the new disabled color.
+
 `FDQ_PrereqInfo` was populated by researching each prereq name individually
 via web search (not a live browser pull -- Wowhead itself is unreachable
 from this dev environment, see "Data source" above) and cross-checked
