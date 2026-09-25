@@ -302,20 +302,58 @@ table places it between active and completed (below missing/active, above
 completed) so quests actually worth going out of your way for still sort
 first.
 
-### Prerequisite quests: expandable status, not a full chain tracker
+### Prerequisite quests: expandable status, full chain where it's safe to show
 
 Many `notes` in `Data.lua` describe a prerequisite ("Complete X first",
-"Requires Y", "Opens after Z") but not always the *entire* chain (some say
-"chain of 6 quests starting with X" without naming all 6 -- Wowhead's guide
-text doesn't enumerate them, and re-deriving full chains for every dungeon
-quest was out of scope). Rather than leave prereqs as pure free text,
-quests where the note names an **exact, single** prerequisite quest title
-have a `prereqs = { "Quest Name" }` field in `Data.lua` (a list, for
-forward-compatibility, though every current entry has exactly one). Quests
-whose notes only give a chain's starting quest and an unspecified count of
-further steps ("chain of N starting with X") deliberately do *not* get a
-`prereqs` entry -- showing just the first step's status would imply the
-whole chain is done when it might not be.
+"Requires Y", "chain of N starting with X"). Where the full chain can be
+verified and **every step has a unique title**, `prereqs = { "Step 1", "Step
+2", ... }` in `Data.lua` lists the whole ordered chain (not just the note's
+starting quest) -- gathered by tracing each chain on Wowhead's Classic
+section (`wowhead.com/classic/quest=NNNN`'s Series/Requires/Unlocks fields;
+WoW: Forever's quest DB mirrors Classic's, per "Game context" above) via the
+`claude-in-chrome` MCP tool, since Wowhead's quest pages are JS-rendered.
+
+**Why not every chain got this treatment: duplicate-titled steps.** A
+sizeable fraction of Classic's quest chains reuse the exact same title for
+multiple steps -- Ragefire Chasm's "Hidden Enemies" is 5 separate quest IDs
+all literally titled "Hidden Enemies"; Deadmines' "The Defias Brotherhood"
+is 6; Scarlet Monastery's "Test of Lore" is 4; Uldaman's "The Lost Tablets
+of Will" chain has three such pairs; Blackrock Depths' "Marshal Windsor" and
+Upper Blackrock Spire's "Drakefire Amulet" both pass through six quests all
+titled "The True Masters". Since `FDQ:GetPrereqStatus()` (like every other
+status check in this addon -- see "Quest matching is by title" above)
+matches by **title string**, not quest ID, a repeated title is
+indistinguishable from itself: completing just the *first* occurrence would
+make the lookup report that title "done," silently implying later
+same-named steps are also complete when they might not be. That's a false
+positive, which is worse than the feature not existing. So: any chain
+containing a duplicate title anywhere in its steps was deliberately left
+**free-text only** (no `prereqs` field), even where the full chain was
+successfully traced -- see the punch list in the "Known gaps" issue this
+was tracked under (linked from the roadmap below) for the complete list and
+each one's `Data.lua` note has been corrected to the verified step count
+even where it couldn't get the expandable treatment.
+
+A few quests got a **partial** `prereqs` list as a deliberate compromise
+rather than being excluded outright:
+- **Dead Man's Plea** (Stratholme) has one faction-forked step ("Return to
+  Deliana" for Alliance vs "Return to Mokvar" for Horde) -- omitted from
+  `prereqs`, since listing both would show a permanent false "Missing" for
+  whichever half doesn't exist for the player's faction. Safe to omit
+  because the very next step, "Just Compensation", can't be picked up
+  without it, so checking that step already implies it.
+- **Ramstein** (Stratholme) only lists the one starting breadcrumb
+  ("The Ranger Lord's Behest") that was confirmed to link forward on
+  Wowhead; a second claimed starter ("To Kill With Purpose") had no
+  verifiable "Unlocks" edge into this chain, so it's left out rather than
+  guessed at, with a caveat in the note.
+- **Blood of the Black Dragon Champion** (Upper Blackrock Spire) kept no
+  `prereqs` at all despite an otherwise-fully-traced 11-step chain, because
+  the one step right before the target quest came back from research with
+  a truncated/uncertain title -- an exact string match is required for this
+  to work at all, so a wrong guess here would silently and permanently show
+  "Missing." The note was still corrected with everything that *was*
+  confirmed.
 
 The prereq quest **doesn't need its own entry in `Data.lua`** to have its
 status checked -- `FDQ:GetPrereqStatus()` (`Core.lua`) matches it by title
@@ -508,17 +546,17 @@ the v0.3 single-window rework):
       confirmed against a live client — specifically that `UnitClass`'s 3rd
       return value is the plain uppercase token (`"WARLOCK"`, `"PALADIN"`,
       `"MAGE"`, `"SHAMAN"`) on Forever's client the way it is on Retail.
-- [x] **Single-step prerequisite status** — shipped: quests where a note
-      names one exact prerequisite quest have a `prereqs` field (`Data.lua`)
-      and an expandable `[+]`/`[-]` row in the UI showing that prereq's own
-      status (see "Prerequisite quests" above). Untested in-game like the
-      rest of the UI rework.
-- [ ] No handling for **multi-step prerequisite chains** — several `notes`
-      say "chain of N quests starting with X" without naming steps 2..N
-      (Wowhead's guide text doesn't enumerate them), so those don't get a
-      `prereqs` entry; showing only the first step's status would be
-      misleading about the whole chain. Would need those intermediate
-      quests identified and added as their own trackable entries.
+- [x] **Prerequisite chain status** — shipped: quests with a traceable,
+      unique-titled prerequisite chain have a full ordered `prereqs` field
+      (`Data.lua`) and an expandable `[+]`/`[-]` row in the UI showing each
+      step's own status (see "Prerequisite quests" above). Untested in-game
+      like the rest of the UI rework.
+- [ ] **~16 chains still can't be fully tracked**, blocked by duplicate
+      quest titles within the chain (this addon matches by title, not ID —
+      see "Quest matching is by title" above), a faction-forked step, or an
+      unverified/ambiguous link found during research. Full punch list,
+      organized by cause and with suggested next steps, tracked in
+      [issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15).
 
 ## Releases
 
