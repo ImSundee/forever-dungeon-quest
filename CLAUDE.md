@@ -444,14 +444,40 @@ so one `FDQ_PrereqInfo` entry covers every chain that lists it.
 `FDQ:GetPrereqStatuses` (`Core.lua`) looks up each prereq's name in this
 table and merges `giver`/`location`/`coords` onto its status entry; a name
 missing from `FDQ_PrereqInfo` just renders without the extra detail, same
-as before. `UI.lua`'s expanded prereq line appends `"(giver - location)"`
-next to the status, and grows its own pooled crosshair waypoint button
-(`row.prereqWaypoints`, mirroring the main per-row `row.waypoint`) when
-`coords` is present -- it builds a small pseudo-quest table
-(`{name=, coords=, location=}`) and hands it straight to
+as before. `UI.lua`'s expanded prereq line grows its own pooled crosshair
+waypoint button (`row.prereqWaypoints`, mirroring the main per-row
+`row.waypoint`) when `coords` is present -- it builds a small pseudo-quest
+table (`{name=, coords=, location=}`) and hands it straight to
 `FDQ:SetQuestWaypoint`/`IsPlayerInQuestZone`/`GetQuestZoneName`
 (`Waypoint.lua`), which only ever read those three fields off whatever
 table they're given, so no changes were needed there.
+
+**Two-column prereq line layout (2026-09-25 rework)**: originally each
+expanded prereq was a single FontString --
+`"- <name>: <status>  (<giver> - <location>)"` -- with the waypoint
+crosshair pinned to the table's right edge same as every other row. In-game
+screenshot feedback showed this reading poorly (no alignment with the main
+table's own Status/Quest/Pickup columns) and, since that one FontString had
+no width cap (`SetWordWrap(false)` doesn't reliably clip overflow -- see
+below), long giver/location text could run underneath or past the
+crosshair instead of stopping short of it. `LayoutRow` (`UI.lua`) now
+renders each prereq line as **two** FontStrings pulled from `GetPrereqLine`
+(`row.prereqNameFS`/`row.prereqPickupFS`, replacing the old single
+`row.prereqFS` pool): the name+status at the indented name position (as
+before), and giver/location aligned under `COL.pickup.x` -- matching the
+main table's own Pickup column, for visual consistency rather than trailing
+at a variable offset. `TruncateToWidth()` (`UI.lua`) actually enforces the
+no-overlap guarantee: rather than guess a character-count cap (font/DPI
+dependent and thus unreliable), it sets the text, checks the real rendered
+`FontString:GetStringWidth()` against the space available before the
+crosshair, and trims a character at a time (appending `"..."`) until it
+fits -- applied to both the pickup text (width computed live off
+`f.tableContent:GetWidth()`, so it re-derives correctly if the window is
+resized) and, more defensively, the prereq name itself (capped to the fixed
+gap between the name and pickup columns). `CreateCrosshairButton` also now
+explicitly calls `btn:SetFrameLevel(parent:GetFrameLevel() + 2)` so the
+crosshair always draws above any FontString it happens to sit near,
+belt-and-suspenders on top of the truncation fix.
 
 `FDQ_PrereqInfo` was populated by researching each prereq name individually
 via web search (not a live browser pull -- Wowhead itself is unreachable
@@ -472,12 +498,12 @@ these just don't show the extra detail yet -- fill them in via
 **Untested**: like the rest of the UI (see "UI shape" above), not yet
 confirmed in-game -- specifically whether the `[+]`/`[-]` click target
 (`row.expandBtn`, sized to the full name-column width) feels natural to
-click versus just clicking directly on the quest name text, whether the
-extra indented lines (now potentially longer with giver/location text plus
-a waypoint icon) read clearly at the table's normal font size, and whether
-the pooled prereq waypoint buttons collide visually with long prereq names
-at the table's current width. The `FDQ_PrereqInfo` data itself is
-unconfirmed against a live client the same way the rest of `Data.lua` is.
+click versus just clicking directly on the quest name text, and whether the
+new two-column layout and `TruncateToWidth` actually read well and stop
+overlap at the table's live width (the screenshot that prompted this rework
+was taken before it, so the fix itself hasn't been screenshotted yet). The
+`FDQ_PrereqInfo` data itself is unconfirmed against a live client the same
+way the rest of `Data.lua` is.
 
 ### Faction filtering
 

@@ -402,6 +402,11 @@ local function CreateCrosshairButton(parent)
   -- "keep showing tooltips on a disabled button" (same mechanism disabled
   -- action bar buttons use), so set it once here instead.
   btn:SetMotionScriptsWhileDisabled(true)
+  -- Guarantee this sits visually above the row's FontStrings even if a
+  -- long, truncated giver/location line still edges up against it --
+  -- parent's frame level plus a margin keeps the click target and its
+  -- ticks/dot from ever being drawn underneath overlapping text.
+  btn:SetFrameLevel(parent:GetFrameLevel() + 2)
 
   local icon = CreateFrame("Frame", nil, btn)
   icon:SetSize(WAYPOINT_ICON_SIZE, WAYPOINT_ICON_SIZE)
@@ -754,9 +759,14 @@ local function GetRow(f, index)
     row.expandBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.expandBtn:Hide()
 
-    -- Lazily-grown pool of prereq status lines shown under a row when
-    -- expanded -- count varies per quest, unlike the fixed cells above.
-    row.prereqFS = {}
+    -- Lazily-grown pools of prereq status lines shown under a row when
+    -- expanded -- count varies per quest, unlike the fixed cells above. Two
+    -- parallel pools (name+status, giver/location) instead of one combined
+    -- FontString, so the giver/location text lines up under the main
+    -- table's Pickup column instead of trailing directly after the status
+    -- text at whatever length that happens to be -- see GetPrereqLine below.
+    row.prereqNameFS = {}
+    row.prereqPickupFS = {}
     -- Parallel pool of waypoint crosshair buttons, one per prereq line that
     -- has coords (via FDQ_PrereqInfo -- see GetPrereqWaypoint below).
     row.prereqWaypoints = {}
@@ -766,17 +776,59 @@ local function GetRow(f, index)
   return row
 end
 
+-- Returns the pair of FontStrings for one expanded prereq line: `name`
+-- (status + prereq name, indented under the Quest column) and `pickup`
+-- (giver/location, aligned under the Pickup column like the main table --
+-- see COL above). Split into two so the giver/location text has a
+-- predictable, boundable start position instead of trailing directly after
+-- variable-length status text, which is what let it run into the waypoint
+-- crosshair pinned to the row's right edge (see TruncateToWidth below for
+-- how overlap is actually prevented).
 local function GetPrereqLine(f, row, idx)
-  local fs = row.prereqFS[idx]
-  if not fs then
-    fs = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    ApplyDefaultFont(fs)
-    fs:SetJustifyH("LEFT")
-    fs:SetWordWrap(false)
-    if skin then skin.Font(fs) end
-    row.prereqFS[idx] = fs
+  local name = row.prereqNameFS[idx]
+  if not name then
+    name = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(name)
+    name:SetJustifyH("LEFT")
+    name:SetWordWrap(false)
+    if skin then skin.Font(name) end
+    row.prereqNameFS[idx] = name
   end
-  return fs
+
+  local pickup = row.prereqPickupFS[idx]
+  if not pickup then
+    pickup = f.tableContent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    ApplyDefaultFont(pickup)
+    pickup:SetJustifyH("LEFT")
+    pickup:SetWordWrap(false)
+    if skin then skin.Font(pickup) end
+    row.prereqPickupFS[idx] = pickup
+  end
+
+  return name, pickup
+end
+
+-- Trims `text` (a plain string, no color codes) a character at a time until
+-- it renders within `maxWidth` pixels on `fs`, appending "...". Measuring
+-- via GetStringWidth (rather than guessing a character-count cap) is what
+-- actually guarantees this can't run into the waypoint crosshair regardless
+-- of font/size, since WordWrap(false) alone doesn't reliably clip overflow
+-- (see the "Untested" note this replaces in CLAUDE.md).
+local function TruncateToWidth(fs, text, maxWidth)
+  if not text or text == "" then return text end
+  fs:SetText(text)
+  if fs:GetStringWidth() <= maxWidth then
+    return text
+  end
+  local trimmed = text
+  while #trimmed > 1 do
+    trimmed = trimmed:sub(1, #trimmed - 1)
+    fs:SetText(trimmed .. "...")
+    if fs:GetStringWidth() <= maxWidth then
+      break
+    end
+  end
+  return trimmed .. "..."
 end
 
 -- A waypoint button for one expanded prereq line, same crosshair icon/
@@ -904,20 +956,36 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
   -- from FDQ_PrereqInfo when available (same "giver - location" shape as the
   -- main Pickup column), and its own waypoint button when coords are known.
   if quest.prereqs and expandedQuests[quest] and prereqStatuses then
+    -- Available pixel width for the giver/location text, so it can never
+    -- visually run into the crosshair pinned at the table's right edge --
+    -- computed off the table's actual current width rather than a column
+    -- constant, since the window (and so f.tableContent) can be resized.
+    local pickupMaxWidth = f.tableContent:GetWidth() - COL.pickup.x
+      - (WAYPOINT_HIT_SIZE + WAYPOINT_RIGHT_PAD + 4)
+    local nameMaxWidth = COL.pickup.x - (COL.name.x + 14) - 10
+
     for i, entry in ipairs(prereqStatuses) do
-      local fs = GetPrereqLine(f, row, i)
-      fs:ClearAllPoints()
-      fs:SetPoint("TOPLEFT", COL.name.x + 14, -(y + height))
-      local text = "- " .. entry.name .. ": " .. STATUS_COLOR[entry.status] .. STATUS_LABEL[entry.status] .. "|r"
+      local nameFS, pickupFS = GetPrereqLine(f, row, i)
+
+      nameFS:ClearAllPoints()
+      nameFS:SetPoint("TOPLEFT", COL.name.x + 14, -(y + height))
+      local displayName = TruncateToWidth(nameFS, entry.name, nameMaxWidth)
+      nameFS:SetText("- " .. displayName .. ": " .. STATUS_COLOR[entry.status] .. STATUS_LABEL[entry.status] .. "|r")
+      nameFS:Show()
+
+      pickupFS:ClearAllPoints()
+      pickupFS:SetPoint("TOPLEFT", COL.pickup.x, -(y + height))
       if entry.giver or entry.location then
-        text = text .. "  |cff888888(" .. (entry.giver or "?")
+        local plain = entry.giver or "?"
         if entry.location then
-          text = text .. " - " .. entry.location
+          plain = plain .. " - " .. entry.location
         end
-        text = text .. ")|r"
+        local displayPickup = TruncateToWidth(pickupFS, plain, pickupMaxWidth)
+        pickupFS:SetText("|cff888888" .. displayPickup .. "|r")
+        pickupFS:Show()
+      else
+        pickupFS:Hide()
       end
-      fs:SetText(text)
-      fs:Show()
 
       local waypointBtn = GetPrereqWaypoint(f, row, i)
       waypointBtn:ClearAllPoints()
@@ -955,14 +1023,18 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
 
       height = height + NOTE_HEIGHT
     end
-    for i = #prereqStatuses + 1, #row.prereqFS do
-      row.prereqFS[i]:Hide()
+    for i = #prereqStatuses + 1, #row.prereqNameFS do
+      row.prereqNameFS[i]:Hide()
+      row.prereqPickupFS[i]:Hide()
     end
     for i = #prereqStatuses + 1, #row.prereqWaypoints do
       row.prereqWaypoints[i]:Hide()
     end
   else
-    for _, fs in ipairs(row.prereqFS) do
+    for _, fs in ipairs(row.prereqNameFS) do
+      fs:Hide()
+    end
+    for _, fs in ipairs(row.prereqPickupFS) do
       fs:Hide()
     end
     for _, btn in ipairs(row.prereqWaypoints) do
@@ -1015,7 +1087,10 @@ function FDQ:SelectDungeon(dungeon)
     row.pickup:Hide()
     row.notes:Hide()
     row.expandBtn:Hide()
-    for _, fs in ipairs(row.prereqFS) do
+    for _, fs in ipairs(row.prereqNameFS) do
+      fs:Hide()
+    end
+    for _, fs in ipairs(row.prereqPickupFS) do
       fs:Hide()
     end
     for _, btn in ipairs(row.prereqWaypoints) do
@@ -1153,7 +1228,10 @@ if EllesmereUI and EllesmereUI.RegisterSkin then
         skin.Font(row.name)
         skin.Font(row.level)
         skin.Font(row.pickup)
-        for _, fs in ipairs(row.prereqFS) do
+        for _, fs in ipairs(row.prereqNameFS) do
+          skin.Font(fs)
+        end
+        for _, fs in ipairs(row.prereqPickupFS) do
           skin.Font(fs)
         end
       end
