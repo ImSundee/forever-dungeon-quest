@@ -150,14 +150,27 @@ can't receive clicks itself — `f.footerBtn` is a plain invisible `Button`
 tooltip explaining the click, same interaction language as the waypoint
 crosshair buttons elsewhere in this file.
 
-An issue form template,
-[`.github/ISSUE_TEMPLATE/missing_quest.yml`](.github/ISSUE_TEMPLATE/missing_quest.yml),
+Two issue form templates back it:
+[`.github/ISSUE_TEMPLATE/missing_quest.yml`](.github/ISSUE_TEMPLATE/missing_quest.yml)
 keeps the ask deliberately minimal — just which dungeon and an optional
 Wowhead link — rather than a long form: enough to go look it up and fix it
 from there, without asking reporters to fill in details they'd otherwise
-have to dig for. `config.yml` alongside it keeps GitHub's blank "open a
-plain issue" option available too, rather than forcing every issue through
-the template.
+have to dig for. A second template,
+[`.github/ISSUE_TEMPLATE/bug_report.yml`](.github/ISSUE_TEMPLATE/bug_report.yml),
+covers the addon itself misbehaving (UI, Lua errors, waypoints, etc, as
+opposed to quest data being wrong) — what happened, repro steps, a pasted
+Lua error, and addon version, all optional except the description. There's
+no in-game button pointed at it (no in-game "something broke" affordance
+exists, just this one quest-focused footer link), so it's reached by
+picking it off GitHub's own template chooser. `config.yml` alongside both
+keeps GitHub's blank "open a plain issue" option available too, rather than
+forcing every issue through a template.
+
+`ISSUES_URL` (`UI.lua`) uses GitHub's `?template=` deep-link query param
+(`.../issues/new?template=missing_quest.yml`) rather than the bare issues
+list, so the in-game footer button lands the player directly on the
+missing-quest form pre-selected — it's specifically for reporting quest
+data, not a generic "file any issue" link.
 
 **Untested**: like the rest of the UI, not yet confirmed in-game —
 specifically that the footer link doesn't visually collide with the
