@@ -1,0 +1,67 @@
+name: Missing or incorrect quest
+description: Report a dungeon quest that's missing, wrong, or outdated in the addon's data.
+title: "[Quest data] "
+labels:
+  - data
+body:
+  - type: input
+    id: dungeon
+    attributes:
+      label: Dungeon
+      description: Which dungeon is this about?
+      placeholder: e.g. Wailing Caverns
+    validations:
+      required: true
+
+  - type: input
+    id: quest
+    attributes:
+      label: Quest name
+      description: Leave blank if the quest is entirely missing and you don't know its name.
+      placeholder: e.g. The Glowing Shard
+    validations:
+      required: false
+
+  - type: dropdown
+    id: problem
+    attributes:
+      label: What's wrong?
+      options:
+        - Quest is missing entirely
+        - Quest giver / start location is wrong
+        - Coordinates are wrong
+        - Quest is listed for the wrong faction
+        - Quest shows as available but shouldn't be (e.g. class-restricted, dungeon-drop)
+        - Prerequisite chain is wrong or incomplete
+        - Other (explain below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What did you see, and what should it say instead? Include your faction and class if relevant.
+      placeholder: |
+        What I saw:
+        What it should be:
+        Faction/class (if relevant):
+    validations:
+      required: true
+
+  - type: input
+    id: coords
+    attributes:
+      label: Coordinates (if applicable)
+      description: In-game coordinates for the quest giver, e.g. "49, 50".
+      placeholder: "49, 50"
+    validations:
+      required: false
+
+  - type: input
+    id: source
+    attributes:
+      label: Source (optional)
+      description: A Wowhead link or screenshot proving the correction, if you have one.
+    validations:
+      required: false
