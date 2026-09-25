@@ -109,6 +109,25 @@ auto-raises on click, not on a programmatic `Show()`. The entry-alert toast
 transient notification, not something that should compete with the main
 window for top billing when both happen to be open.
 
+**Fix attempted (2026-09-25, per user report): Escape didn't close the
+window.** The X button
+(`f.closeButton`) worked via `UIPanelCloseButtonTemplate`'s own default
+`OnClick`, but pressing Escape did nothing — a globally-named frame
+(`CreateFrame("Frame", "FDQ_MainFrame", ...)`) isn't automatically wired
+into the game's Escape-key handling just by existing; it has to be listed
+in `UISpecialFrames` (the standard Blizzard mechanism every other
+Escape-closable panel uses). `CreateMainFrame()` now does
+`tinsert(UISpecialFrames, "FDQ_MainFrame")` once, right after the close
+button is created. The entry-alert toast (`CreateEntryAlertFrame`)
+deliberately isn't added to `UISpecialFrames` — it's a transient
+auto-dismissing notification, not a modal panel, and Blizzard's own toasts
+(loot, achievements, etc.) don't respond to Escape either.
+**Unverified**: `UISpecialFrames` is a long-standing, stable Retail API
+(true since well before Forever's Interface 16001 baseline), but like
+everything else touching game-facing behavior in this file, this hasn't
+been confirmed against a live client — no beta access from this dev
+environment.
+
 ### Minimap button
 
 Hand-rolled rather than pulling in LibDataBroker/LibDBIcon, to keep the addon
@@ -620,6 +639,44 @@ overlap at the table's live width (the screenshot that prompted this rework
 was taken before it, so the fix itself hasn't been screenshotted yet). The
 `FDQ_PrereqInfo` data itself is unconfirmed against a live client the same
 way the rest of `Data.lua` is.
+
+### Sidebar "Done" badge for fully-completed dungeons
+
+Per user request (2026-09-25): once every quest FDQ tracks for a dungeon is
+done, that dungeon is more useful to flag as "nothing left to do here" than
+to keep presenting as just another entry in the list — the player might
+still run it for XP/loot, but not because they need to go check its quest
+log first. `FDQ:IsDungeonComplete(dungeon)` (`Core.lua`) runs the same
+`BuildReport()` the main table uses and returns `true` only if every row's
+status is `"completed"` or `"unavailable"` (a class restriction is as done
+as it'll ever get on that character — same reasoning `unavailable` already
+gets grouped with `completed` for elsewhere, see "Class-restricted quest
+status" below). `"active"` (still in the log) and `"dungeon-drop"`/
+`"missing"` (still a reason to go do something) both count as *not* done —
+an unclaimed dungeon-drop quest is specifically still a reason to visit the
+dungeon beyond XP, which is exactly the distinction this badge exists to
+draw.
+
+`RefreshSidebar()` (`UI.lua`) calls this per dungeon button and shows/hides
+a pooled `button.doneBadge` FontString (plain `"|cff33ff33Done|r"`, vivid
+green) pinned to the button's own right edge via
+`SetPoint("RIGHT", button, "RIGHT", -6, 0)`. Deliberately a separate
+FontString rather than appended into the button's own label text (which
+already carries the dungeon name plus a level-color badge from
+`GetLevelColor` — see below — and longer dungeon names already come close
+to the button's fixed 170px width, so a third piece of inline text risked
+overflow the same way the quest table's own notes/prereq text did before
+the `TruncateToWidth` fixes above). The bright green is intentionally
+distinct from the muted gray `STATUS_COLOR.completed` used for individual
+"Done" quest-row labels elsewhere — this badge is meant to be scannable
+across the whole sidebar at a glance, not blend in the way a single row's
+status text is meant to.
+
+**Untested**: like the rest of the UI, not confirmed in-game — specifically
+whether the badge visually collides with the level-color badge or a long
+dungeon name at the button's current 170px width, and whether `RIGHT, -6, 0`
+leaves it clear of the button's own rounded-corner artwork on the stock
+`UIPanelButtonTemplate`.
 
 ### Faction filtering
 

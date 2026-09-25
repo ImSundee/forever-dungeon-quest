@@ -273,6 +273,26 @@ function FDQ:BuildReport(dungeon)
   return rows
 end
 
+-- Whether every quest FDQ:BuildReport would show for this dungeon (for the
+-- player's own faction) is already done -- "completed" or "unavailable"
+-- (a class restriction the player could never have satisfied on this
+-- character, so it's as done as it'll ever get, same reasoning as its
+-- status color/grouping elsewhere -- see "Class-restricted quest status" in
+-- CLAUDE.md). "active" (still in the quest log) and "dungeon-drop"/
+-- "missing" (still something to go do) both count as not-yet-complete --
+-- an unclaimed dungeon-drop still means a reason to visit the dungeon
+-- beyond just XP, which is exactly the distinction the sidebar badge this
+-- powers is meant to draw for the player.
+function FDQ:IsDungeonComplete(dungeon)
+  local rows = FDQ:BuildReport(dungeon)
+  for _, row in ipairs(rows) do
+    if row.status ~= "completed" and row.status ~= "unavailable" then
+      return false
+    end
+  end
+  return true
+end
+
 -- Debug helper for issue #15: a handful of prereq chains reuse the same
 -- title for multiple quests, which title-matching can't tell apart (see the
 -- ID-based matching note at the top of this file). Wowhead is unreachable

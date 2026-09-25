@@ -549,6 +549,12 @@ local function CreateMainFrame()
   f.closeButton = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   f.closeButton:SetPoint("TOPRIGHT", -4, -4)
 
+  -- Lets Escape close the window, the same way it closes any other
+  -- Blizzard UI panel -- without this, a globally-named frame like this
+  -- one is invisible to the game's Escape-key handling entirely, and only
+  -- the X button (or /fdq again) can close it.
+  tinsert(UISpecialFrames, "FDQ_MainFrame")
+
   -- Sidebar: level filter + dungeon list.
   f.sidebar = CreateFrame("Frame", nil, f)
   f.sidebar:SetPoint("TOPLEFT", 16, -80)
@@ -693,6 +699,22 @@ local function GetSidebarButton(f, index)
     if skin then
       skin.Button(button)
     end
+
+    -- "Done" badge for a dungeon with nothing left to do (see
+    -- FDQ:IsDungeonComplete, Core.lua) -- pinned to the button's own right
+    -- edge rather than appended into the button's text (which already
+    -- carries the dungeon name plus a level badge, see RefreshSidebar
+    -- below, and both are wide enough on longer dungeon names that jamming
+    -- a third piece of text into the same string risked overflow/clipping).
+    -- A vivid green distinct from the muted gray "Done" used for individual
+    -- completed quest rows (STATUS_COLOR.completed) -- this is meant to
+    -- stand out at a glance across the whole sidebar, not blend in.
+    button.doneBadge = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    ApplyDefaultFont(button.doneBadge)
+    if skin then skin.Font(button.doneBadge) end
+    button.doneBadge:SetPoint("RIGHT", button, "RIGHT", -6, 0)
+    button.doneBadge:SetText("|cff33ff33Done|r")
+    button.doneBadge:Hide()
   end
   return button
 end
@@ -744,6 +766,7 @@ function FDQ:RefreshSidebar()
       label = label .. "  " .. GetLevelColor(dungeon) .. "(" .. atLevel .. ")|r"
     end
     button:SetText(label)
+    button.doneBadge:SetShown(FDQ:IsDungeonComplete(dungeon))
     if selectedDungeon == dungeon then
       button:LockHighlight()
     else
