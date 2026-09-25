@@ -3,8 +3,16 @@
 -- Patch 1.60.1, updated 2026/09/23. Data is Classic-derived and may change during Beta.
 --
 -- Faction values: "Alliance", "Horde", "Neutral" (available/needed regardless of faction)
--- Quests are matched purely by title at runtime (see Core.lua) -- no hardcoded quest IDs,
--- since Wowhead's guide text doesn't expose them and beta IDs may still shift.
+-- Quests are matched by title at runtime by default (see Core.lua) -- no hardcoded quest
+-- IDs, since Wowhead's guide text doesn't expose them and beta IDs may still shift.
+--
+-- ID-based matching (issue #15): a quest entry may carry an optional `id = <questID>`
+-- field, and a `prereqs` entry may be `{ name = "...", id = <questID> }` instead of a
+-- plain string. When `id` is set, Core.lua matches that entry by quest ID only (not
+-- title) -- use this for chains where a title repeats across multiple distinct quests
+-- (title matching can't tell those apart; see "Quest matching is by title" in
+-- CLAUDE.md). `/fdq idscan <text>` (Core.lua) prints the real questID for any of the
+-- player's own active/completed quests whose title matches, for filling these in.
 
 FDQ_Dungeons = {
 
@@ -17,7 +25,7 @@ FDQ_Dungeons = {
       { name = "The Power to Destroy...", level = 9, faction = "Horde", giver = "Varimathras", location = "Undercity, Royal Quarter", coords = "56, 92" },
       { name = "Testing an Enemy's Strength", level = 9, faction = "Horde", giver = "Rahauro", location = "Thunder Bluff, Elder Rise", coords = "70, 30" },
       { name = "Searching for the Lost Satchel", level = 9, faction = "Neutral", giver = "Grimtotem Satchel (drop from Maur Grimtotem)", location = "Inside Ragefire Chasm", dungeonDrop = true },
-      { name = "Hidden Enemies", level = 9, faction = "Horde", giver = "Thrall", location = "Orgrimmar, Valley of Wisdom", coords = "31, 37", notes = "Prerequisite: complete 3 quests starting with Hidden Enemies from Thrall." },
+      { name = "Hidden Enemies", level = 9, faction = "Horde", giver = "Thrall", location = "Orgrimmar, Valley of Wisdom", coords = "31, 37", notes = "Prerequisite: complete 3 quests starting with Hidden Enemies from Thrall. All 5 steps share this exact title -- see issue #15; /fdq idscan can find each step's real questID." },
     },
   },
 
@@ -58,7 +66,7 @@ FDQ_Dungeons = {
       { name = "Oh Brother...", level = 15, faction = "Alliance", giver = "Wilder Thistlenettle", location = "Stormwind, Dwarven District", coords = "65, 21" },
       { name = "Underground Assault", level = 15, faction = "Alliance", giver = "Shoni the Shilent", location = "Stormwind, Dwarven District", coords = "55, 13" },
       { name = "The Unsent Letter", level = 16, faction = "Neutral", giver = "Drop from Edwin VanCleef", location = "The Deadmines", notes = "Prerequisite to pick up The Stockade Riots.", dungeonDrop = true },
-      { name = "Red Silk Bandanas", level = 14, faction = "Alliance", giver = "Scout Riell", location = "Westfall, Sentinel Hill", coords = "56, 47", notes = "Prerequisite: complete 6 quests starting with The Defias Brotherhood (Gryan Stoutmantle, Sentinel Hill, Westfall)." },
+      { name = "Red Silk Bandanas", level = 14, faction = "Alliance", giver = "Scout Riell", location = "Westfall, Sentinel Hill", coords = "56, 47", notes = "Prerequisite: complete 6 quests starting with The Defias Brotherhood (Gryan Stoutmantle, Sentinel Hill, Westfall). All 5 prereq steps plus the target share this title -- see issue #15; /fdq idscan can find each step's real questID." },
       { name = "The Defias Brotherhood", level = 14, faction = "Alliance", giver = "Gryan Stoutmantle", location = "Westfall, Sentinel Hill", coords = "56, 47", notes = "Same prerequisites as Red Silk Bandanas." },
       { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", classOnly = "PALADIN", notes = "Paladin only. Starts the Tome of Valor quest chain; start point varies by race." },
     },
@@ -176,13 +184,13 @@ FDQ_Dungeons = {
     quests = {
       -- All Wings
       { name = "Into The Scarlet Monastery", level = 33, faction = "Horde", giver = "Varimathras", location = "Undercity, Royal Quarter", coords = "56, 92" },
-      { name = "In the Name of the Light", level = 34, faction = "Alliance", giver = "Raleigh the Devout", location = "Hillsbrad Foothills, Southshore", coords = "51, 58", notes = "3 prerequisite quests, starting with Brother Anton." },
+      { name = "In the Name of the Light", level = 34, faction = "Alliance", giver = "Raleigh the Devout", location = "Hillsbrad Foothills, Southshore", coords = "51, 58", notes = "3 prerequisite quests, starting with Brother Anton. Chain includes Down the Scarlet Path twice under distinct quest IDs -- see issue #15; /fdq idscan can find the real IDs." },
       -- Graveyard
       { name = "Vorrel's Revenge", level = 25, faction = "Neutral", giver = "Vorrel Sengutz", location = "Scarlet Monastery, Graveyard" },
       { name = "Hearts of Zeal", level = 30, faction = "Horde", giver = "Master Apothecary Faranell", location = "Undercity, The Apothecarium", coords = "48, 69", notes = "Requires Going, Going, Guano! (Razorfen Kraul) first.", prereqs = { "Going, Going, Guano!" } },
       -- Library
       { name = "Compendium of the Fallen", level = 28, faction = "Horde", giver = "Sage Truthseeker", location = "Thunder Bluff, First Rise", coords = "36, 26", notes = "Undead cannot pick up this quest." },
-      { name = "Test of Lore", level = 25, faction = "Horde", giver = "Parqual Fintallas", location = "Undercity, The Apothecarium", coords = "57, 65", notes = "Chain of 7 quests, starting with Test of Faith, Test of Endurance, Test of Strength, then four further quests all titled Test of Lore." },
+      { name = "Test of Lore", level = 25, faction = "Horde", giver = "Parqual Fintallas", location = "Undercity, The Apothecarium", coords = "57, 65", notes = "Chain of 7 quests, starting with Test of Faith, Test of Endurance, Test of Strength, then four further quests all titled Test of Lore -- see issue #15; /fdq idscan can find each step's real questID." },
       { name = "Mythology of the Titans", level = 28, faction = "Alliance", giver = "Librarian Mae Paledust", location = "Ironforge, Hall of Explorers", coords = "75, 12" },
       { name = "Rituals of Power", level = 30, faction = "Neutral", giver = "Magus Tirth", location = "Thousand Needles, Shimmering Flats Raceway", coords = "78, 75", classOnly = "MAGE", notes = "Mage only. Chain of 3 quests starting with Journey to the Marsh.", prereqs = { "Journey to the Marsh", "Hidden Secrets", "Get the Scoop" } },
     },
@@ -215,7 +223,7 @@ FDQ_Dungeons = {
       { name = "The Hidden Chamber", level = 35, faction = "Alliance", giver = "Baelog's Journal", location = "Uldaman, Lost Dwarves area", notes = "Complete The Lost Dwarves first.", prereqs = { "The Lost Dwarves" } },
       { name = "Uldaman Reagent Run", level = 38, faction = "Alliance", giver = "Ghak Healtouch", location = "Loch Modan, Thelsamar", coords = "37, 49", notes = "Complete Badlands Reagent Run first.", prereqs = { "Badlands Reagent Run" } },
       { name = "Agmond's Fate", level = 33, faction = "Alliance", giver = "Prospector Ironband", location = "Loch Modan, Ironband's Excavation Site", coords = "65, 65", notes = "Chain of 3 quests starting with Ironband Wants You!", prereqs = { "Ironband Wants You!", "Find Agmond", "Murdaloc" } },
-      { name = "The Lost Tablets of Will", level = 30, faction = "Alliance", giver = "Advisor Belgrum", location = "Ironforge, Hall of Explorers", coords = "77, 9", notes = "Chain of 8 quests starting with A Sign of Hope." },
+      { name = "The Lost Tablets of Will", level = 30, faction = "Alliance", giver = "Advisor Belgrum", location = "Ironforge, Hall of Explorers", coords = "77, 9", notes = "Chain of 8 quests starting with A Sign of Hope. Three step titles (A Sign of Hope, Prospect of Faith, Passing Word of a Threat) each appear twice -- see issue #15; /fdq idscan can find each step's real questID." },
       { name = "The Shattered Necklace", level = 37, faction = "Neutral", giver = "Drop: Shattered Necklace from Shadowforge/Shadowvault mobs", location = "Badlands, outside Uldaman instance", notes = "Drop-only." },
       { name = "Power Stones", level = 30, faction = "Neutral", giver = "Rigglefuzz", location = "Badlands, Central", coords = "42, 52" },
       { name = "Solution to Doom", level = 30, faction = "Neutral", giver = "Theldurin the Lost", location = "Badlands, Southern", coords = "51, 76" },
@@ -289,22 +297,22 @@ FDQ_Dungeons = {
       { name = "KILL ON SIGHT: Dark Iron Dwarves", level = 48, faction = "Horde", giver = "WANTED poster", location = "Badlands, Kargath", coords = "4, 47" },
       { name = "Lost Thunderbrew Recipe", level = 50, faction = "Horde", giver = "Shadowmage Vivian Lagrave", location = "Badlands, Kargath", coords = "3, 48", notes = "Breadcrumb: Vivian Lagrave in Undercity for easy XP." },
       { name = "KILL ON SIGHT: High Ranking Dark Iron Officials", level = 50, faction = "Horde", giver = "WANTED poster", location = "Badlands, Kargath", coords = "4, 47", notes = "Complete KILL ON SIGHT: Dark Iron Dwarves first.", prereqs = { "KILL ON SIGHT: Dark Iron Dwarves" } },
-      { name = "The Rise of the Machines", level = 52, faction = "Horde", giver = "Lotwil Veriatus", location = "Badlands, Eastern", coords = "25, 44", notes = "Chain of 2 quests starting with The Rise of the Machines." },
+      { name = "The Rise of the Machines", level = 52, faction = "Horde", giver = "Lotwil Veriatus", location = "Badlands, Eastern", coords = "25, 44", notes = "Chain of 2 quests starting with The Rise of the Machines. Both prereq steps share the target's exact title -- see issue #15; /fdq idscan can find each step's real questID." },
       { name = "Disharmony of Flame", level = 48, faction = "Horde", giver = "Thunderheart", location = "Badlands, Kargath", coords = "3.6, 48.0" },
       { name = "Disharmony of Fire", level = 48, faction = "Horde", giver = "Thunderheart", location = "Badlands, Kargath", coords = "3.6, 48.0", notes = "Opens after Disharmony of Flame.", prereqs = { "Disharmony of Flame" } },
       { name = "Commander Gor'shak", level = 48, faction = "Horde", giver = "Galamav the Marksman", location = "Badlands, Kargath", coords = "6, 47", notes = "Opens after Disharmony of Flame.", prereqs = { "Disharmony of Flame" } },
       { name = "The Last Element", level = 48, faction = "Horde", giver = "Shadowmage Vivian Lagrave", location = "Badlands, Kargath", coords = "3, 48", notes = "Opens after Disharmony of Flame.", prereqs = { "Disharmony of Flame" } },
       { name = "Operation: Death to Angerforge", level = 52, faction = "Horde", giver = "Warlord Goretooth", location = "Badlands, Kargath", coords = "6, 47", notes = "Chain of 4 starting with KILL ON SIGHT: Dark Iron Dwarves. Includes a long escort (Grark Lorkrub).", prereqs = { "KILL ON SIGHT: Dark Iron Dwarves", "KILL ON SIGHT: High Ranking Dark Iron Officials", "Grark Lorkrub", "Precarious Predicament" } },
-      { name = "The Royal Rescue", level = 48, faction = "Horde", giver = "Thrall", location = "Orgrimmar, Valley of Wisdom", coords = "32, 38", notes = "Chain of 4 starting with Commander Gor'shak." },
+      { name = "The Royal Rescue", level = 48, faction = "Horde", giver = "Thrall", location = "Orgrimmar, Valley of Wisdom", coords = "32, 38", notes = "Chain of 4 starting with Commander Gor'shak. Includes What Is Going On? twice -- see issue #15; /fdq idscan can find each step's real questID." },
       -- Alliance
       { name = "Overmaster Pyron", level = 48, faction = "Alliance", giver = "Jalinda Sprig", location = "Burning Steppes, Morgan's Vigil", coords = "85, 70" },
       { name = "Incendius!", level = 48, faction = "Alliance", giver = "Jalinda Sprig", location = "Burning Steppes, Morgan's Vigil", coords = "85, 70", notes = "Complete Overmaster Pyron first.", prereqs = { "Overmaster Pyron" } },
       { name = "The Good Stuff", level = 50, faction = "Alliance", giver = "Oralius", location = "Burning Steppes, Morgan's Vigil", coords = "84, 68" },
       { name = "Hurley Blackbreath", level = 50, faction = "Alliance", giver = "Ragnar Thunderbrew", location = "Dun Morogh, Kharanos", coords = "46, 52" },
-      { name = "Kharan Mighthammer", level = 50, faction = "Alliance", giver = "King Magni Bronzebeard", location = "Ironforge, Throne Room", coords = "39, 56", notes = "Chain of 2 starting with The Smoldering Ruins of Thaurissan." },
+      { name = "Kharan Mighthammer", level = 50, faction = "Alliance", giver = "King Magni Bronzebeard", location = "Ironforge, Throne Room", coords = "39, 56", notes = "Chain of 2 starting with The Smoldering Ruins of Thaurissan. Includes that title twice -- see issue #15; /fdq idscan can find each step's real questID." },
       { name = "The Fate of the Kingdom", level = 50, faction = "Alliance", giver = "King Magni Bronzebeard", location = "Ironforge, Throne Room", coords = "39, 56", notes = "Chain of 2 starting with Kharan Mighthammer.", prereqs = { "Kharan Mighthammer" } },
-      { name = "Marshal Windsor", level = 48, faction = "Alliance", giver = "Marshal Maxwell", location = "Burning Steppes, Morgan's Vigil", coords = "84, 68", notes = "Chain of 7 starting with Dragonkin Menace, then six further quests all titled The True Masters." },
-      { name = "Jail Break!", level = 50, faction = "Alliance", giver = "Marshal Windsor", location = "Blackrock Depths, Prison Cell", notes = "Chain of 9 starting with Dragonkin Menace, through six same-titled The True Masters quests and Marshal Windsor's own chain (Abandoned Hope, A Crumpled Up Note) to A Shred of Hope." },
+      { name = "Marshal Windsor", level = 48, faction = "Alliance", giver = "Marshal Maxwell", location = "Burning Steppes, Morgan's Vigil", coords = "84, 68", notes = "Chain of 7 starting with Dragonkin Menace, then six further quests all titled The True Masters -- see issue #15; /fdq idscan can find each step's real questID." },
+      { name = "Jail Break!", level = 50, faction = "Alliance", giver = "Marshal Windsor", location = "Blackrock Depths, Prison Cell", notes = "Chain of 9 starting with Dragonkin Menace, through six same-titled The True Masters quests and Marshal Windsor's own chain (Abandoned Hope, A Crumpled Up Note) to A Shred of Hope -- see issue #15; /fdq idscan can find each step's real questID." },
       -- Neutral
       { name = "Ribbly Screwspigot", level = 50, faction = "Neutral", giver = "Yuka Screwspigot", location = "Burning Steppes, Flame Crest", coords = "66, 21", notes = "Breadcrumb: Yuka Screwspigot in Steamwheedle Port for easy XP." },
       { name = "The Heart of the Mountain", level = 50, faction = "Neutral", giver = "Maxwort Uberglint", location = "Burning Steppes, Flame Crest", coords = "65, 23" },
@@ -388,7 +396,7 @@ FDQ_Dungeons = {
       { name = "Krastinov's Bag of Horrors", level = 55, faction = "Neutral", giver = "Eva Sarkhoff", location = "Western Plaguelands, Caer Darrow", coords = "70, 73", notes = "Complete Doctor Theolen Krastinov, the Butcher first.", prereqs = { "Doctor Theolen Krastinov, the Butcher" } },
       { name = "Kirtonos the Herald", level = 55, faction = "Neutral", giver = "Eva Sarkhoff", location = "Western Plaguelands, Caer Darrow", coords = "70, 73", notes = "Complete Krastinov's Bag of Horrors first; keep item #13544.", prereqs = { "Krastinov's Bag of Horrors" } },
       { name = "Dawn's Gambit", level = 57, faction = "Neutral", giver = "Betina Bigglezink", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59", notes = "Chain of 9 starting with Broodling Essence.", prereqs = { "Broodling Essence", "Felnok Steelspring", "Chillwind Horns", "Return to Tinkee", "Tinkee Steamboil", "Egg Freezing", "Egg Collection", "Leonid Barthalomew", "Betina Bigglezink" } },
-      { name = "The Lich, Ras Frostwhisper", level = 57, faction = "Neutral", giver = "Magistrate Marduke", location = "Western Plaguelands, Caer Darrow", coords = "70, 74", notes = "Chain of 8 starting with Doctor Theolen Krastinov, the Butcher. Must have item #13544 equipped to see Marduke." },
+      { name = "The Lich, Ras Frostwhisper", level = 57, faction = "Neutral", giver = "Magistrate Marduke", location = "Western Plaguelands, Caer Darrow", coords = "70, 74", notes = "Chain of 8 starting with Doctor Theolen Krastinov, the Butcher. Must have item #13544 equipped to see Marduke. Includes Menethil's Gift twice under distinct quest IDs -- see issue #15; /fdq idscan can find the real IDs." },
     },
   },
 
@@ -434,7 +442,7 @@ FDQ_Dungeons = {
       { name = "Blood of the Black Dragon Champion", level = 55, faction = "Horde", giver = "Rexxar (patrols)", location = "Desolace", notes = "Long chain starting with Warlord's Command (shares its first 3 steps with For The Horde!), through Eitrigg's Wisdom, What the Wind Carries, The Champion of the Horde, The Testament of Rexxar, Oculus Illusions, and Emberstrife, then three parallel Test of Skulls quests (Chronalis/Scryer/Somnus, all required) before Test of Skulls: Axtroz. The final step before this quest wasn't confirmed with full confidence -- worth an in-game check." },
       { name = "Doomrigger's Clasp", level = 57, faction = "Alliance", giver = "Mayara Brightwing", location = "Burning Steppes, Morgan's Vigil", coords = "84, 69", notes = "Breadcrumb: Mayara Brightwing in Stormwind Keep for easy XP." },
       { name = "General Drakkisath's Demise", level = 55, faction = "Alliance", giver = "Marshal Maxwell", location = "Burning Steppes, Morgan's Vigil", coords = "84, 68", notes = "Requires General Drakkisath's Command first.", prereqs = { "General Drakkisath's Command" } },
-      { name = "Drakefire Amulet", level = 50, faction = "Neutral", giver = "Haleh", location = "Winterspring, Mazthoril", coords = "56, 49", notes = "Long chain (14 prerequisite quests) starting with Dragonkin Menace, through six same-titled The True Masters quests and the Marshal Windsor/Jail Break! chain, to Stormwind Rendezvous and The Great Masquerade. Step on the blue rune at end of cave to spawn NPC." },
+      { name = "Drakefire Amulet", level = 50, faction = "Neutral", giver = "Haleh", location = "Winterspring, Mazthoril", coords = "56, 49", notes = "Long chain (14 prerequisite quests) starting with Dragonkin Menace, through six same-titled The True Masters quests and the Marshal Windsor/Jail Break! chain, to Stormwind Rendezvous and The Great Masquerade. Step on the blue rune at end of cave to spawn NPC. See issue #15; /fdq idscan can find each step's real questID." },
       { name = "Blackhand's Command", level = 55, faction = "Neutral", giver = "Drop from Scarshield Quartermaster", location = "Blackrock Mountain, side hallway on the way to BWL", dungeonDrop = true },
       { name = "The Matron Protectorate", level = 57, faction = "Neutral", giver = "Awbee", location = "Blackrock Spire, Upper, ledge in room after killing Blackhand" },
       { name = "Finkle Einhorn, At Your Service!", level = 57, faction = "Neutral", giver = "Pip Quickwit", location = "Blackrock Spire, Upper", notes = "Only spawns after skinning (300) The Beast with Pip Quickwit." },

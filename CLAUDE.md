@@ -254,7 +254,7 @@ potentially before or after the skin callback fires), and does re-skinning
 an already-visible frame (the block at the bottom of `UI.lua`) actually
 work or fight with EUI's own re-layout.
 
-### Quest matching is by **title**, not quest ID — on purpose
+### Quest matching is by **title** by default, with an opt-in ID fallback (issue #15)
 
 Wowhead's guide doesn't expose quest IDs, and this is still Beta so IDs could
 change anyway. Instead of hardcoding IDs, `Core.lua` builds a title→completed
@@ -279,6 +279,41 @@ client** — there's no beta access from this dev environment. If titles come
 back nil for completed quests, that's the first thing to check; the fallback
 would be a `C_QuestLog.RequestLoadQuestByID` + wait-and-retry loop, or
 accepting an incomplete completed-quest index.
+
+**ID-based opt-in (issue #15)**: title matching breaks down for the handful
+of chains (tracked in
+[issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15))
+where multiple distinct quests share the exact same title — completing the
+first same-titled step would make the lookup report every later step
+"completed" too. Rather than rearchitect the whole addon onto IDs (still
+risky per the Beta-ID-churn point above, and most of `Data.lua` has no
+duplicate-title problem at all), `Core.lua` now supports **matching a single
+entry by ID instead of title**, opt-in per entry:
+
+- A quest entry in `Data.lua` may set `id = <questID>` to match by ID.
+- A `prereqs` entry may be `{ name = "...", id = <questID> }` instead of a
+  plain string, for the same reason.
+
+When `id` is present, `FDQ:GetQuestStatus`/`FDQ:GetPrereqStatus` check it
+against `FDQ:GetActiveQuestIDs()`/`FDQ:GetCompletedQuestIDs()` (both built
+fresh per report, unlike the cached title index — `GetAllCompletedQuestIDs()`
+already returns raw IDs, so there's no per-ID resolve cost to cache against)
+and skip the title index entirely for that entry, so a duplicate title
+elsewhere can't produce a false "completed". Entries without `id` are
+unaffected — this is purely additive.
+
+**Getting the real IDs**: Wowhead is unreachable from this dev environment
+(the network egress proxy blocks `www.wowhead.com` outright, and `WebSearch`
+alone can't reliably tell five same-titled quests apart), so the actual
+per-step IDs for the chains in issue #15 could not be filled in from here.
+`/fdq idscan <text>` (`Core.lua`) is the stopgap: run it in-game while a
+candidate quest is active, or after completing it, and it prints the title +
+real `questID` for every match in the player's own active/completed quests
+— paste that into the `id`/`{name=,id=}` field. The `Data.lua` note for
+every duplicate-title chain from issue #15 now points back at this. Doing
+this for a chain also confirms the addon's other open assumption — whether
+Forever's own Beta quest IDs for these quests match Classic's — since
+`idscan` reads them straight from the live client rather than from Wowhead.
 
 ### "Dungeon Drop" status for in-instance drop-starters
 
@@ -551,9 +586,21 @@ the v0.3 single-window rework):
       (`Data.lua`) and an expandable `[+]`/`[-]` row in the UI showing each
       step's own status (see "Prerequisite quests" above). Untested in-game
       like the rest of the UI rework.
+- [x] **ID-based matching opt-in for duplicate-titled chains** — shipped:
+      `Core.lua` now lets a single quest or `prereqs` entry match by
+      `id = <questID>` instead of title (see "Quest matching is by title"
+      above), and `/fdq idscan <text>` helps find real questIDs in-game.
+      This unblocks the duplicate-title chains from issue #15 in principle,
+      but **the actual per-step IDs still need to be filled in** — Wowhead
+      is unreachable from this dev environment (network egress blocks it),
+      so none of the ~12 duplicate-title chains below have real `id` values
+      yet, just a `Data.lua` note pointing at `/fdq idscan`. Whoever has
+      live Beta access needs to run each chain and paste in the IDs; the
+      faction-forked/unverified-link chains in issue #15 aren't a duplicate-
+      title problem and don't need this at all.
 - [ ] **~16 chains still can't be fully tracked**, blocked by duplicate
-      quest titles within the chain (this addon matches by title, not ID —
-      see "Quest matching is by title" above), a faction-forked step, or an
+      quest titles within the chain (mitigated by the ID-based opt-in above,
+      but not yet filled in with real IDs), a faction-forked step, or an
       unverified/ambiguous link found during research. Full punch list,
       organized by cause and with suggested next steps, tracked in
       [issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15).

@@ -1,9 +1,29 @@
 -- Forever Dungeon Quests: core logic
--- Matches quests by TITLE rather than quest ID, because:
+-- Matches quests by TITLE by default, because:
 --   1. Wowhead's guide text doesn't expose quest IDs.
 --   2. WoW: Forever is in Beta -- IDs may still change.
 --   3. C_QuestLog.GetAllCompletedQuestIDs() + GetTitleForQuestID() lets us build a
 --      title->completed index at runtime, so we never need to hardcode IDs.
+--
+-- ID-based matching (see issue #15): a small number of prerequisite chains
+-- reuse the exact same title for multiple distinct quests (e.g. Ragefire
+-- Chasm's "Hidden Enemies" x5). Title matching can't tell those steps apart
+-- -- completing the first occurrence would make every same-titled step
+-- report "completed". For those specific cases, a quest entry (in
+-- Data.lua) or a prereqs entry can carry an explicit `id = <questID>` (main
+-- quest entries) / `{ name = "...", id = <questID> }` (prereqs entries)
+-- instead of relying on the title. When `id` is present, status is looked
+-- up by ID only (activeIDs/completedIDs below) and the title index is not
+-- consulted at all for that entry, so a duplicate title elsewhere can't
+-- produce a false "completed".
+--
+-- Getting the real IDs: Wowhead is unreachable from this dev environment
+-- (network egress blocks it, and WebSearch alone can't reliably disambiguate
+-- 5 quests sharing one title), so IDs for the chains in issue #15 couldn't
+-- be filled in from here. `/fdq idscan <text>` (below) is a stopgap so
+-- whoever has live Beta access can find the right ID for a quest that's
+-- currently active or already completed on their character and paste it
+-- into Data.lua.
 
 FDQ = {}
 local FDQ = FDQ
@@ -55,6 +75,45 @@ function FDQ:GetActiveQuestTitles()
   return active
 end
 
+-- Set of quest IDs currently in the player's quest log. Cheap to build fresh
+-- every call (unlike the title index, there's no per-ID lookup cost here).
+function FDQ:GetActiveQuestIDs()
+  local active = {}
+  local numEntries = C_QuestLog.GetNumQuestLogEntries()
+  for i = 1, numEntries do
+    local info = C_QuestLog.GetInfo(i)
+    if info and not info.isHeader and info.questID and info.questID ~= 0 then
+      active[info.questID] = true
+    end
+  end
+  return active
+end
+
+-- Set of completed quest IDs. Also cheap to build fresh -- GetAllCompletedQuestIDs()
+-- already returns the raw IDs, it's only the title index (RefreshCompletedIndex)
+-- that needs the resolve-and-cache treatment.
+function FDQ:GetCompletedQuestIDs()
+  local completed = {}
+  local ids = C_QuestLog.GetAllCompletedQuestIDs()
+  if ids then
+    for _, id in ipairs(ids) do
+      completed[id] = true
+    end
+  end
+  return completed
+end
+
+-- A prereqs entry (Data.lua) is either a plain string (legacy, title-matched)
+-- or { name = "...", id = <questID> } for a step that needs ID matching to
+-- disambiguate a duplicate title (see the ID-based matching note above).
+-- Returns name, id (id may be nil).
+function FDQ:NormalizePrereqEntry(entry)
+  if type(entry) == "table" then
+    return entry.name, entry.id
+  end
+  return entry, nil
+end
+
 function FDQ:GetPlayerFaction()
   local faction = UnitFactionGroup("player")
   return faction or "Neutral"
@@ -74,12 +133,24 @@ end
 -- to go do about it. Checked after active/completed so a class quest the
 -- player already has or finished (e.g. on an older character before a
 -- class change, if Forever ever allows those) still reports correctly.
-function FDQ:GetQuestStatus(quest, activeTitles)
-  if activeTitles[quest.name] then
-    return "active"
-  end
-  if FDQ_DB.completedTitles[quest.name] then
-    return "completed"
+-- activeIDs/completedIDs are only consulted when quest.id is set (see the
+-- ID-based matching note above) -- callers that never set quest.id can pass
+-- nil for both and nothing changes from the old title-only behavior.
+function FDQ:GetQuestStatus(quest, activeTitles, activeIDs, completedIDs)
+  if quest.id then
+    if activeIDs and activeIDs[quest.id] then
+      return "active"
+    end
+    if completedIDs and completedIDs[quest.id] then
+      return "completed"
+    end
+  else
+    if activeTitles[quest.name] then
+      return "active"
+    end
+    if FDQ_DB.completedTitles[quest.name] then
+      return "completed"
+    end
   end
   if quest.classOnly then
     local _, playerClass = UnitClass("player")
@@ -93,17 +164,27 @@ function FDQ:GetQuestStatus(quest, activeTitles)
   return "missing"
 end
 
--- Status of a bare prerequisite quest name (quest.prereqs entries in
--- Data.lua): matched the same way as any other quest, by title, against the
--- same active/completed indexes -- the prereq doesn't need its own entry in
--- Data.lua for this to work. No "dungeon-drop" case here since a
--- prerequisite is always something picked up beforehand, not inside the
--- dungeon that's asking for it.
-function FDQ:GetPrereqStatus(prereqName, activeTitles)
-  if activeTitles[prereqName] then
+-- Status of a quest.prereqs entry (Data.lua): matched the same way as any
+-- other quest, by title (or by id when the entry sets one -- see the
+-- ID-based matching note above), against the same active/completed indexes
+-- -- the prereq doesn't need its own entry in Data.lua for this to work. No
+-- "dungeon-drop" case here since a prerequisite is always something picked
+-- up beforehand, not inside the dungeon that's asking for it.
+function FDQ:GetPrereqStatus(prereqEntry, activeTitles, activeIDs, completedIDs)
+  local name, id = FDQ:NormalizePrereqEntry(prereqEntry)
+  if id then
+    if activeIDs and activeIDs[id] then
+      return "active"
+    end
+    if completedIDs and completedIDs[id] then
+      return "completed"
+    end
+    return "missing"
+  end
+  if activeTitles[name] then
     return "active"
   end
-  if FDQ_DB.completedTitles[prereqName] then
+  if FDQ_DB.completedTitles[name] then
     return "completed"
   end
   return "missing"
@@ -111,11 +192,15 @@ end
 
 -- Returns { {name=, status=}, ... } for quest.prereqs, or nil if the quest
 -- has none.
-function FDQ:GetPrereqStatuses(quest, activeTitles)
+function FDQ:GetPrereqStatuses(quest, activeTitles, activeIDs, completedIDs)
   if not quest.prereqs then return nil end
   local statuses = {}
-  for _, prereqName in ipairs(quest.prereqs) do
-    table.insert(statuses, { name = prereqName, status = FDQ:GetPrereqStatus(prereqName, activeTitles) })
+  for _, prereqEntry in ipairs(quest.prereqs) do
+    local name = FDQ:NormalizePrereqEntry(prereqEntry)
+    table.insert(statuses, {
+      name = name,
+      status = FDQ:GetPrereqStatus(prereqEntry, activeTitles, activeIDs, completedIDs),
+    })
   end
   return statuses
 end
@@ -160,18 +245,59 @@ function FDQ:BuildReport(dungeon)
   FDQ:RefreshCompletedIndex()
   local faction = FDQ:GetPlayerFaction()
   local activeTitles = FDQ:GetActiveQuestTitles()
+  local activeIDs = FDQ:GetActiveQuestIDs()
+  local completedIDs = FDQ:GetCompletedQuestIDs()
 
   local rows = {}
   for _, quest in ipairs(dungeon.quests) do
     if quest.faction == "Neutral" or quest.faction == faction then
       table.insert(rows, {
         quest = quest,
-        status = FDQ:GetQuestStatus(quest, activeTitles),
-        prereqStatuses = FDQ:GetPrereqStatuses(quest, activeTitles),
+        status = FDQ:GetQuestStatus(quest, activeTitles, activeIDs, completedIDs),
+        prereqStatuses = FDQ:GetPrereqStatuses(quest, activeTitles, activeIDs, completedIDs),
       })
     end
   end
   return rows
+end
+
+-- Debug helper for issue #15: a handful of prereq chains reuse the same
+-- title for multiple quests, which title-matching can't tell apart (see the
+-- ID-based matching note at the top of this file). Wowhead is unreachable
+-- from the addon's dev environment, so this addon can't look those IDs up
+-- itself -- this scans the player's own active + completed quests for a
+-- title match and prints each candidate's real questID, to paste into
+-- Data.lua as `id = <questID>` (main quest) or `{ name = "...", id = <questID> }`
+-- (a prereqs entry).
+function FDQ:PrintIDScan(query)
+  query = query:lower()
+  local prefix = "|cff33ff99Forever Dungeon Quests|r"
+  local found = false
+
+  local numEntries = C_QuestLog.GetNumQuestLogEntries()
+  for i = 1, numEntries do
+    local info = C_QuestLog.GetInfo(i)
+    if info and not info.isHeader and info.title and info.questID
+        and info.title:lower():find(query, 1, true) then
+      print(string.format("%s: [active] %s -- id %d", prefix, info.title, info.questID))
+      found = true
+    end
+  end
+
+  local ids = C_QuestLog.GetAllCompletedQuestIDs()
+  if ids then
+    for _, id in ipairs(ids) do
+      local title = C_QuestLog.GetTitleForQuestID(id)
+      if title and title:lower():find(query, 1, true) then
+        print(string.format("%s: [completed] %s -- id %d", prefix, title, id))
+        found = true
+      end
+    end
+  end
+
+  if not found then
+    print(prefix .. ": no active or completed quest titles match \"" .. query .. "\".")
+  end
 end
 
 -- Slash command: /fdq [dungeon name]
@@ -186,6 +312,12 @@ SlashCmdList["FDQ"] = function(msg)
   if msg == "scan" then
     FDQ:RefreshCompletedIndex(true)
     print("|cff33ff99Forever Dungeon Quests|r: completed-quest index rebuilt (" .. FDQ_DB.completedCount .. " quests).")
+    return
+  end
+
+  local idscanQuery = msg:match("^idscan%s+(.+)$")
+  if idscanQuery then
+    FDQ:PrintIDScan(idscanQuery)
     return
   end
 
