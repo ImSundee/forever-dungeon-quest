@@ -993,7 +993,7 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
         row.waypoint.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
       else
         local zone = FDQ:GetQuestZoneName(quest)
-        row.waypoint.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint for this quest.")
+        row.waypoint.fdqTooltip = zone and ("Travel to " .. zone .. " to be able to set a waypoint for this quest.")
           or "This quest's zone couldn't be determined, so no waypoint can be set here."
       end
     end
@@ -1123,7 +1123,7 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
             waypointBtn.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
           else
             local zone = FDQ:GetQuestZoneName(pseudoQuest)
-            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint for this prerequisite.")
+            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to be able to set a waypoint for this prerequisite.")
               or "This prerequisite's zone couldn't be determined, so no waypoint can be set here."
           end
         end
