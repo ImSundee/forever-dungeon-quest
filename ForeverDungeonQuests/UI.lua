@@ -796,13 +796,19 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
         (provider == "TomTom" and " (TomTom)." or ".")
     else
       row.waypoint:Disable()
+      -- Button:Disable() also disallows mouse interaction, which silently
+      -- kills OnEnter/OnLeave along with OnClick -- without this, the
+      -- disabled-state tooltip below (e.g. "wrong zone") never shows on
+      -- hover. Re-enabling mouse here doesn't bring OnClick back: a
+      -- disabled button widget still suppresses that natively.
+      row.waypoint:EnableMouse(true)
       row.waypoint:SetIconColor(0.5, 0.5, 0.5, 0.4)
       if not provider then
         row.waypoint.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
       else
         local zone = FDQ:GetQuestZoneName(quest)
-        row.waypoint.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint here.")
-          or "Not available from your current zone."
+        row.waypoint.fdqTooltip = zone and ("You need to be in " .. zone .. " to set a waypoint here.")
+          or "You're in the wrong zone to set a waypoint for this quest."
       end
     end
     row.waypoint:SetScript("OnClick", function()
