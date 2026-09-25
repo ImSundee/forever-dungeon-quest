@@ -930,6 +930,88 @@ the v0.3 single-window rework):
       [issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15)
       for why they're a different kind of blocked.
 
+## CI: WoW API lint
+
+[`.github/workflows/lint.yml`](.github/workflows/lint.yml) runs on every
+push to `main` and every PR. It types-checks `ForeverDungeonQuests/*.lua`
+against [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api)'s
+community WoW API annotations — the same EmmyLua-style annotations that
+extension feeds VS Code's IntelliSense for WoW addon dev, run here
+headlessly via `lua-language-server --check` so the whole codebase gets
+checked on every commit, not just when a contributor happens to have the
+extension installed. This is a general "are we using the WoW API the way
+it's documented" check (undefined globals, wrong argument types/counts),
+separate from anything addon-specific — it doesn't know about `FDQ_Dungeons`
+or Forever's Beta status, it just knows the shape of the Blizzard API
+surface.
+
+**Both the annotations and `lua-language-server` itself come from CI**, not
+this repo (`vscode-wow-api` is checked out fresh via a second `actions/
+checkout` step into `.wow-api-annotations/`, and the `lua-language-server`
+binary is downloaded from its GitHub release, both pinned — see the
+workflow file for versions). Nothing from either is vendored in, so there's
+no library-update step to remember here — bumping `LUALS_VERSION` in the
+workflow is the only version pin that ever needs touching, and should be
+done deliberately with a re-run to confirm nothing regresses (see below for
+why that matters more than usual for this specific checker).
+
+**Config is generated at runtime, not checked in** (`Write LuaLS config`
+step) — the `workspace.library` paths point at `.wow-api-annotations/`,
+which only exists inside that CI run. A contributor with the actual Ketho
+extension installed in VS Code gets equivalent live checking locally
+without needing this file at all (the extension manages its own copy of
+the annotations); this workflow exists for everyone else's pushes and for
+PRs from forks.
+
+**Confirmed by actually running this workflow's exact logic against a real
+`lua-language-server` binary during setup (2026-09-25)**, not just written
+against the tools' documented behavior — this caught one real bug before it
+shipped: `--configpath` resolves a *relative* path against the `--check`
+target directory (`ForeverDungeonQuests/`), not the working directory
+`lua-language-server` is invoked from. A first draft passed
+`--configpath=.luarc.ci.json` (relative), which silently failed to load any
+config — meaning `workspace.library` never loaded either, and every
+Blizzard global (`CreateFrame`, `C_QuestLog`, etc.) reported as
+`undefined-global` across the whole addon (104 false findings, one run).
+The fix is passing `$GITHUB_WORKSPACE`-anchored absolute paths for both
+`--configpath` and every `workspace.library` entry, which the workflow now
+does. Worth remembering if this ever gets refactored: relative paths here
+look reasonable and pass a casual read, but silently produce a
+maximally-wrong result (a "check" that's actually checking nothing against
+the WoW API at all) rather than an obvious error.
+
+**Only Error-severity findings fail the build; Warning-severity findings
+are reported in the job's step summary but don't block.** This was a
+deliberate split after seeing what the annotations actually flag on this
+codebase, not a default: at `checklevel=Error` the addon currently comes
+back completely clean (confirmed same session), but at the more thorough
+`checklevel=Warning` it reports ~11 `param-type-mismatch` findings, every
+one on a `CreateFrame` call whose template-name argument isn't in the
+annotation's literal-string enum for that parameter (e.g.
+`"UIPanelCloseButton"`) — a known category of false positive with
+community-maintained Blizzard API annotations: the template-name type is a
+closed union generated from whatever templates that annotation set's
+author enumerated, not an open string type, so any valid template it
+didn't happen to include reads as a type error. Hard-failing on Warnings
+would have meant every push blocked on template names that are correct
+Blizzard API usage, for a reason with nothing to do with this addon's own
+code — worse than not having the check at all, since it trains contributors
+to ignore red CI rather than read it. A `CLOSE`-undefined-global false
+positive (a real, if unusual, Blizzard string global not covered by this
+particular annotation set) was instead just added to the config's
+`diagnostics.globals` allowlist directly, since that one's cheap to name
+explicitly rather than needing the whole-severity-tier carve-out the
+template-name issue does.
+
+**Unverified**: whether `checklevel=Error` staying clean holds as `Data.lua`/
+`Core.lua`/etc. grow — this was checked once, at setup time, against the
+codebase as of 2026-09-25, not continuously. If a future PR's Error-level
+failure looks like another instance of the template-enum false-positive
+pattern above rather than a real API misuse, that's a sign the finding
+needs a Warning-tier carve-out (or a `diagnostics.globals`/`disable` entry,
+per the `CLOSE` precedent) rather than a reason to ignore red CI — check
+which case it is before dismissing it either way.
+
 ## Releases
 
 `.github/workflows/release.yml` builds a release on GitHub Actions (repo is
