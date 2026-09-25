@@ -5,6 +5,75 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
+## [0.5.0] - 2026-09-25
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.5.0)
+
+### Added
+- Expandable `[+]`/`[-]` prerequisite chains: a quest with a traceable,
+  uniquely-titled prerequisite chain now shows each step's own status
+  (Missing / In Log / Done) when expanded, instead of just a free-text
+  note. Giver/location/coords and a waypoint crosshair are shown per step
+  where known (`FDQ_PrereqInfo`).
+- Opt-in ID-based quest matching (`id = <questID>` on a quest or prereq
+  entry) for the handful of chains where multiple distinct quests share
+  the exact same title, which title-only matching can't tell apart. Real
+  quest IDs are now filled in for all of the duplicate-title chains
+  tracked in issue #15 (Ragefire Chasm, Deadmines, Scarlet Monastery,
+  Uldaman, Blackrock Depths, Upper Blackrock Spire, Scholomance), traced
+  against Wowhead's Classic quest database — two chain-length estimates
+  were corrected in the process (`Jail Break!` and `Drakefire Amulet`),
+  and a previously-uncertain final step turned out to be a real quest
+  literally titled `"Ascension..."`.
+- `"Unavailable"` quest status for quests restricted to a single class the
+  player's character isn't, so they no longer show as a misleading
+  `Missing`.
+- Sidebar dungeon buttons are now color-coded by difficulty band relative
+  to the player's own level (gray/green/orange/red), and show a green
+  "Done" in place of the level badge — with the dungeon name grayed out —
+  once every quest FDQ tracks for that dungeon is already completed.
+- A waypoint crosshair button on each quest row (and each expanded
+  prerequisite line) with known coordinates, using TomTom if installed or
+  the client's built-in waypoint otherwise. Disabled outside the quest's
+  own zone, with a tooltip naming the zone you need to be in.
+- "Missing a quest?" report link in the main window, pointing at a
+  pre-filled GitHub issue template.
+- A thin divider between each quest's block in the table, so an expanded
+  entry with several prerequisite lines doesn't run into the next quest.
+
+### Changed
+- Replaced the hand-rolled dropdown/scrollbar's remaining rough edges and
+  reworked the expanded prerequisite lines into a column-aligned layout
+  (name/status under Quest, giver/location under Pickup) matching the main
+  table, with text measured against the live table width so it can't
+  overlap the waypoint crosshair.
+- Waypoint button moved from a left-hand column to a crosshair icon
+  pinned to each row's right edge.
+- Main window now uses `DIALOG` frame strata so it renders above other UI
+  panels and third-party unit frames instead of sometimes sitting behind
+  them.
+- Quest and prerequisite `notes` text trimmed across `Data.lua` — once a
+  quest has a full prerequisite chain, the expandable list already shows
+  it, so restating "chain of N quests, starting with X" in prose was pure
+  noise. Genuine caveats (item requirements, faction forks, ordering
+  exceptions) were kept.
+- Waypoint tooltip wording cleaned up ("Travel to `<zone>` to be able to
+  set a waypoint for this quest").
+
+### Fixed
+- Escape now closes the main window, like any other Blizzard UI panel
+  (it wasn't registered in `UISpecialFrames`).
+- The `[+]`/`[-]` prerequisite expand toggle didn't respond to clicks
+  in-game — the overlay button was missing `EnableMouse(true)`.
+- Hovering a disabled (wrong-zone) waypoint crosshair didn't show its
+  explanatory tooltip at all — `Button:Disable()` also suppresses
+  `OnEnter`/`OnLeave`, not just `OnClick`. Fixed properly via
+  `SetMotionScriptsWhileDisabled(true)` rather than the initial
+  `EnableMouse(true)` workaround, and the disabled-state icon recolored
+  from a near-invisible pale gray to a clearly-visible dim orange.
+- Long quest notes could visually overflow past the table's right edge
+  instead of being clipped.
+
 ## [0.4.0] - 2026-09-24
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.4.0)
