@@ -1114,7 +1114,7 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
         if provider and inZone then
           waypointBtn:Enable()
           waypointBtn:SetIconColor(1, 1, 1, 0.9)
-          waypointBtn.fdqTooltip = "Set a waypoint to this prerequisite's quest giver" ..
+          waypointBtn.fdqTooltip = "Set a waypoint to this quest's giver" ..
             (provider == "TomTom" and " (TomTom)." or ".")
         else
           waypointBtn:Disable()
@@ -1123,8 +1123,8 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
             waypointBtn.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
           else
             local zone = FDQ:GetQuestZoneName(pseudoQuest)
-            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to be able to set a waypoint for this prerequisite.")
-              or "This prerequisite's zone couldn't be determined, so no waypoint can be set here."
+            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to be able to set a waypoint for this quest.")
+              or "This quest's zone couldn't be determined, so no waypoint can be set here."
           end
         end
         waypointBtn:SetScript("OnClick", function()
