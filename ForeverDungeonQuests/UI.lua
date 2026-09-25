@@ -700,21 +700,10 @@ local function GetSidebarButton(f, index)
       skin.Button(button)
     end
 
-    -- "Done" badge for a dungeon with nothing left to do (see
-    -- FDQ:IsDungeonComplete, Core.lua) -- pinned to the button's own right
-    -- edge rather than appended into the button's text (which already
-    -- carries the dungeon name plus a level badge, see RefreshSidebar
-    -- below, and both are wide enough on longer dungeon names that jamming
-    -- a third piece of text into the same string risked overflow/clipping).
-    -- A vivid green distinct from the muted gray "Done" used for individual
-    -- completed quest rows (STATUS_COLOR.completed) -- this is meant to
-    -- stand out at a glance across the whole sidebar, not blend in.
-    button.doneBadge = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    ApplyDefaultFont(button.doneBadge)
-    if skin then skin.Font(button.doneBadge) end
-    button.doneBadge:SetPoint("RIGHT", button, "RIGHT", -6, 0)
-    button.doneBadge:SetText("|cff33ff33Done|r")
-    button.doneBadge:Hide()
+    -- Stock UIPanelButtonTemplate default text color (a golden yellow),
+    -- captured once so RefreshSidebar can restore it for a not-yet-complete
+    -- dungeon after graying out a completed one's -- see below.
+    button.defaultNameColor = { button:GetFontString():GetTextColor() }
   end
   return button
 end
@@ -760,13 +749,32 @@ function FDQ:RefreshSidebar()
 
   for i, dungeon in ipairs(filtered) do
     local button = GetSidebarButton(f, i)
-    local atLevel = dungeon.levels and dungeon.levels.atLevel
+    local complete = FDQ:IsDungeonComplete(dungeon)
     local label = dungeon.name
-    if atLevel then
-      label = label .. "  " .. GetLevelColor(dungeon) .. "(" .. atLevel .. ")|r"
+    if complete then
+      -- Nothing left to do here -- the level badge (a "how hard is this
+      -- for me right now" cue) stops mattering once every quest is done,
+      -- so "Done" takes its place instead of just tacking on a second
+      -- badge next to it (see 2026-09-25 user feedback: the first pass at
+      -- this, a separate FontString pinned to the button's right edge,
+      -- read as "strapped on" rather than part of the row).
+      label = label .. "  |cff33ff33Done|r"
+    else
+      local atLevel = dungeon.levels and dungeon.levels.atLevel
+      if atLevel then
+        label = label .. "  " .. GetLevelColor(dungeon) .. "(" .. atLevel .. ")|r"
+      end
     end
     button:SetText(label)
-    button.doneBadge:SetShown(FDQ:IsDungeonComplete(dungeon))
+    -- Gray out the dungeon name itself once complete -- still fully
+    -- clickable (LockHighlight/OnClick below are untouched), just a visual
+    -- cue that this entry doesn't need attention anymore. Restored to the
+    -- template's own default (golden yellow) otherwise.
+    if complete then
+      button:GetFontString():SetTextColor(0.6, 0.6, 0.6)
+    else
+      button:GetFontString():SetTextColor(unpack(button.defaultNameColor))
+    end
     if selectedDungeon == dungeon then
       button:LockHighlight()
     else

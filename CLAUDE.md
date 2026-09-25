@@ -657,26 +657,33 @@ an unclaimed dungeon-drop quest is specifically still a reason to visit the
 dungeon beyond XP, which is exactly the distinction this badge exists to
 draw.
 
-`RefreshSidebar()` (`UI.lua`) calls this per dungeon button and shows/hides
-a pooled `button.doneBadge` FontString (plain `"|cff33ff33Done|r"`, vivid
-green) pinned to the button's own right edge via
-`SetPoint("RIGHT", button, "RIGHT", -6, 0)`. Deliberately a separate
-FontString rather than appended into the button's own label text (which
-already carries the dungeon name plus a level-color badge from
-`GetLevelColor` — see below — and longer dungeon names already come close
-to the button's fixed 170px width, so a third piece of inline text risked
-overflow the same way the quest table's own notes/prereq text did before
-the `TruncateToWidth` fixes above). The bright green is intentionally
-distinct from the muted gray `STATUS_COLOR.completed` used for individual
-"Done" quest-row labels elsewhere — this badge is meant to be scannable
-across the whole sidebar at a glance, not blend in the way a single row's
-status text is meant to.
+**First pass (a separate `button.doneBadge` FontString pinned to the
+button's right edge) was reworked same-day per user feedback** — it read
+as "strapped on" rather than part of the row, sitting on top of the
+existing level-color badge instead of replacing it. `RefreshSidebar()`
+(`UI.lua`) now builds the button's label as one of two mutually exclusive
+tails after the dungeon name: `"  |cff33ff33Done|r"` when
+`FDQ:IsDungeonComplete()` is true, or the existing level-color badge from
+`GetLevelColor()` (`"  (atLevel)"`, colored by difficulty band — see
+below) when it isn't. The two never appear together, and the level badge
+(a "how hard is this for me right now" cue) is exactly the piece of
+information that stops mattering once there's nothing left to check for
+that dungeon, so replacing it instead of appending a second badge reads as
+more deliberate. The dungeon name itself also grays out
+(`button:GetFontString():SetTextColor(0.6, 0.6, 0.6)`) when complete,
+restored to the template's own default gold
+(`button.defaultNameColor`, captured once at button creation via
+`GetTextColor()`) otherwise — signals "already handled" without implying
+the entry is disabled, since `LockHighlight`/`OnClick` are completely
+unaffected and the button stays fully clickable. The embedded
+`|cff33ff33...|r`/level-color codes render in their own color regardless
+of the FontString's base color, so graying the base color only affects the
+plain dungeon-name text, not the colored tail.
 
 **Untested**: like the rest of the UI, not confirmed in-game — specifically
-whether the badge visually collides with the level-color badge or a long
-dungeon name at the button's current 170px width, and whether `RIGHT, -6, 0`
-leaves it clear of the button's own rounded-corner artwork on the stock
-`UIPanelButtonTemplate`.
+whether the grayed name still reads clearly enough against the sidebar's
+dark backdrop, and whether `"  |cff33ff33Done|r"` fits within the button's
+170px width for the longest dungeon names without wrapping/clipping.
 
 ### Faction filtering
 
