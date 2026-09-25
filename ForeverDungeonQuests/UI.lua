@@ -30,6 +30,7 @@ local STATUS_COLOR = {
   completed = "|cff808080",    -- gray
   active = "|cff33ff33",       -- green
   ["dungeon-drop"] = "|cffffcc00", -- yellow
+  unavailable = "|cff808080",  -- gray, same as completed -- nothing to do about it
   missing = "|cffff4444",      -- red
 }
 
@@ -37,6 +38,7 @@ local STATUS_LABEL = {
   completed = "Done",
   active = "In Log",
   ["dungeon-drop"] = "Drop",
+  unavailable = "Unavailable",
   missing = "Missing",
 }
 
@@ -824,7 +826,7 @@ function FDQ:SelectDungeon(dungeon)
   end
 
   local rows = FDQ:BuildReport(dungeon)
-  local order = { missing = 1, active = 2, ["dungeon-drop"] = 3, completed = 4 }
+  local order = { missing = 1, active = 2, ["dungeon-drop"] = 3, completed = 4, unavailable = 4 }
   table.sort(rows, function(a, b)
     if order[a.status] ~= order[b.status] then
       return order[a.status] < order[b.status]

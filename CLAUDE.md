@@ -488,10 +488,26 @@ the v0.3 single-window rework):
       this client, and whether the zone-name matching in
       `IsPlayerInQuestZone` lines up with real `GetZoneText()`/
       `GetSubZoneText()` values for the zones in `Data.lua`).
-- [ ] No handling yet for **class-restricted** quests beyond a free-text note
-      (e.g. `"Paladin only"`, `"Mage only"`, `"Blacksmiths only"`) — the table
-      shows them but doesn't cross-check the player's class. Could add a
-      `classOnly` field to `Data.lua` and filter/flag it in `Core.lua`.
+- [x] **Class-restricted quest status** — shipped: quests restricted to a
+      single class (`"Paladin only"`, `"Warlock only"`, `"Mage only"`,
+      `"Shaman only"`) now carry a `classOnly = "WARLOCK"`-style field (an
+      uppercase English class token, matching `UnitClass("player")`'s 3rd
+      return) in `Data.lua`. `FDQ:GetQuestStatus()` (`Core.lua`) checks it
+      after active/completed and returns a fifth status, `"unavailable"`,
+      when the player's class doesn't match — the player could never have
+      picked the quest up on this character, so showing it as `Missing` was
+      misleading the same way `dungeon-drop` quests were (see that section
+      above). `UI.lua`'s `STATUS_COLOR`/`STATUS_LABEL` render it gray/
+      "Unavailable", same color as `completed`, and the row-sort `order`
+      table groups it with `completed` (both rank 4) — it's meant to read
+      and behave like a done quest, not a missing one, per the user's
+      explicit request. Only true class restrictions got this field —
+      `"Blacksmiths only"` (a profession, not a class) was deliberately left
+      as free text since it's out of scope for `UnitClass`.
+      **Untested**: like the rest of the addon's game-facing logic, not
+      confirmed against a live client — specifically that `UnitClass`'s 3rd
+      return value is the plain uppercase token (`"WARLOCK"`, `"PALADIN"`,
+      `"MAGE"`, `"SHAMAN"`) on Forever's client the way it is on Retail.
 - [x] **Single-step prerequisite status** — shipped: quests where a note
       names one exact prerequisite quest have a `prereqs` field (`Data.lua`)
       and an expandable `[+]`/`[-]` row in the UI showing that prereq's own

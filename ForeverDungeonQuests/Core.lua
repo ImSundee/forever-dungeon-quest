@@ -60,17 +60,32 @@ function FDQ:GetPlayerFaction()
   return faction or "Neutral"
 end
 
--- status: "completed" | "active" | "dungeon-drop" | "missing"
+-- status: "completed" | "active" | "dungeon-drop" | "unavailable" | "missing"
 -- "dungeon-drop" quests start from an item drop inside the dungeon itself
 -- (quest.dungeonDrop in Data.lua) -- the player can't go "pick them up" ahead
 -- of time like a normal quest giver, so showing them as "Missing" is
 -- misleading. They're picked up naturally while running the dungeon.
+-- "unavailable" is for quests restricted to a class the player isn't
+-- playing (quest.classOnly in Data.lua, an uppercase English class token
+-- like "WARLOCK" matching UnitClass's 3rd return) -- the player could never
+-- have picked these up on this character, so "Missing" is just as
+-- misleading as it is for dungeon-drop quests; treated the same as
+-- "completed" everywhere else (sort order, counts) since there's nothing
+-- to go do about it. Checked after active/completed so a class quest the
+-- player already has or finished (e.g. on an older character before a
+-- class change, if Forever ever allows those) still reports correctly.
 function FDQ:GetQuestStatus(quest, activeTitles)
   if activeTitles[quest.name] then
     return "active"
   end
   if FDQ_DB.completedTitles[quest.name] then
     return "completed"
+  end
+  if quest.classOnly then
+    local _, playerClass = UnitClass("player")
+    if playerClass ~= quest.classOnly then
+      return "unavailable"
+    end
   end
   if quest.dungeonDrop then
     return "dungeon-drop"
