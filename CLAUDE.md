@@ -128,6 +128,45 @@ client — worth confirming the icon/border textures referenced
 files, since Retail sometimes renames/relocates minimap-related art between
 versions.
 
+### "Missing a quest?" report link
+
+A `"Missing a quest? Report it"` link sits in the main window's bottom-right
+corner (`f.footer`/`f.footerBtn`, `UI.lua`), pointing at the repo's GitHub
+issues page (`https://github.com/ImSundee/forever-dungeon-quest/issues`).
+Anchored `BOTTOMRIGHT, -16, 10` on the outer frame — the same `-16` right
+margin `f.closeButton`/`f.rightPanel` already use — with the sidebar and
+right panel's own bottom anchors pulled in from `16` to `30` to leave it
+clearance without overlapping the quest table's scroll area.
+
+WoW's UI has no way to open a real browser link from inside the client, so
+clicking it doesn't try to launch one — it shows a `StaticPopupDialogs`
+entry (`FDQ_MISSING_QUEST_LINK`) with a read-only-in-practice `EditBox`
+pre-filled with the URL and auto-highlighted/focused (`OnShow`), which is
+the standard WoW addon pattern for handing a player something to Ctrl+C
+into their own browser. Same click-target trick as the sidebar's `[+]`/
+`[-]` prereq toggle (see "Prerequisite quests" below) since a FontString
+can't receive clicks itself — `f.footerBtn` is a plain invisible `Button`
+`SetAllPoints`'d to `f.footer`, brightening the text on hover with a
+tooltip explaining the click, same interaction language as the waypoint
+crosshair buttons elsewhere in this file.
+
+An issue form template,
+[`.github/ISSUE_TEMPLATE/missing_quest.yml`](.github/ISSUE_TEMPLATE/missing_quest.yml),
+asks reporters for the dungeon, quest name, what's wrong (dropdown: missing
+entirely / wrong giver-location / wrong coords / wrong faction / wrongly
+shown as available / bad prereq chain / other), details, coords, and an
+optional source link — so a report arrives with enough to act on instead of
+a bare "quest X is wrong." `config.yml` alongside it keeps GitHub's blank
+"open a plain issue" option available too, rather than forcing every issue
+through the template.
+
+**Untested**: like the rest of the UI, not yet confirmed in-game —
+specifically that the footer link doesn't visually collide with the
+scroll bar's bottom edge or the sidebar's dungeon list at the window's
+default size, and that `StaticPopup_Show` (a global, always-present
+Blizzard API, unlike some of the more addon-specific choices elsewhere in
+this file) renders/behaves as expected on Forever's client.
+
 ### Custom dropdown and scrollbar (no Blizzard widget art)
 
 After in-game feedback that the sidebar's level-bracket dropdown (built on

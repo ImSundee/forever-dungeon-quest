@@ -67,6 +67,36 @@ local function GetLevelColor(dungeon)
   end
 end
 
+-- "Missing a quest?" footer link (bottom-right corner of the main window):
+-- opens a small copyable-URL popup pointed at the GitHub issues page. WoW's
+-- UI has no way to open a real browser link from inside the client, so this
+-- is the standard addon pattern -- a StaticPopup with a pre-selected,
+-- read-only-in-practice EditBox the player Ctrl+C's out of -- rather than a
+-- dead hyperlink or a raw chat print.
+local ISSUES_URL = "https://github.com/ImSundee/forever-dungeon-quest/issues"
+
+StaticPopupDialogs["FDQ_MISSING_QUEST_LINK"] = {
+  text = "Report a missing or incorrect quest on GitHub:",
+  button1 = CLOSE,
+  hasEditBox = true,
+  editBoxWidth = 350,
+  OnShow = function(self)
+    self.editBox:SetText(ISSUES_URL)
+    self.editBox:HighlightText()
+    self.editBox:SetFocus()
+  end,
+  EditBoxOnEnterPressed = function(self)
+    self:GetParent():Hide()
+  end,
+  EditBoxOnEscapePressed = function(self)
+    self:GetParent():Hide()
+  end,
+  timeout = 0,
+  whileDead = true,
+  hideOnEscape = true,
+  preferredIndex = 3,
+}
+
 -- A plain 8x8 all-white texture bundled with the client, used everywhere
 -- below as a solid-color fill/border instead of any Blizzard-themed art
 -- (dropdown box, its menu, scrollbar thumb).
@@ -460,6 +490,7 @@ local function SkinWindowChrome(f)
   if f.tableScroll and f.tableScroll.ScrollBar then
     skin.ScrollBar(f.tableScroll.ScrollBar)
   end
+  skin.Font(f.footer)
 end
 
 local function CreateMainFrame()
@@ -515,7 +546,10 @@ local function CreateMainFrame()
   -- Sidebar: level filter + dungeon list.
   f.sidebar = CreateFrame("Frame", nil, f)
   f.sidebar:SetPoint("TOPLEFT", 16, -80)
-  f.sidebar:SetPoint("BOTTOMLEFT", 16, 16)
+  -- Bottom margin is 30 rather than the outer window's usual 16 to leave
+  -- clearance for the "Missing a quest?" footer link pinned to the
+  -- bottom-right corner below (see f.footer).
+  f.sidebar:SetPoint("BOTTOMLEFT", 16, 30)
   f.sidebar:SetWidth(190)
 
   f.levelDropdown = CreateCleanDropdown(f.sidebar, 170)
@@ -542,7 +576,8 @@ local function CreateMainFrame()
   -- Right panel: dungeon header + quest table.
   f.rightPanel = CreateFrame("Frame", nil, f)
   f.rightPanel:SetPoint("TOPLEFT", f.divider, "TOPRIGHT", 8, 0)
-  f.rightPanel:SetPoint("BOTTOMRIGHT", -16, 16)
+  -- Same 30px bottom clearance as the sidebar above, for the footer link.
+  f.rightPanel:SetPoint("BOTTOMRIGHT", -16, 30)
 
   f.dungeonName = f.rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   ApplyDefaultFont(f.dungeonName)
@@ -607,6 +642,34 @@ local function CreateMainFrame()
   f.emptyText:SetText("Pick a dungeon on the left.")
 
   f.rows = {}
+
+  -- "Missing a quest?" report link, bottom-right corner of the window
+  -- (matches the -16 right margin f.closeButton/f.rightPanel already use).
+  -- See ISSUES_URL/StaticPopupDialogs["FDQ_MISSING_QUEST_LINK"] above for
+  -- why this opens a copyable-URL popup instead of a real hyperlink.
+  f.footer = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  ApplyDefaultFont(f.footer)
+  f.footer:SetPoint("BOTTOMRIGHT", -16, 10)
+  f.footer:SetText("Missing a quest? Report it")
+  f.footer:SetTextColor(0.6, 0.6, 0.6)
+
+  -- FontStrings can't receive clicks -- same pattern as row.expandBtn for
+  -- the prereq [+]/[-] toggle (see "Prerequisite quests" in CLAUDE.md).
+  f.footerBtn = CreateFrame("Button", nil, f)
+  f.footerBtn:SetAllPoints(f.footer)
+  f.footerBtn:SetScript("OnClick", function()
+    StaticPopup_Show("FDQ_MISSING_QUEST_LINK")
+  end)
+  f.footerBtn:SetScript("OnEnter", function()
+    f.footer:SetTextColor(1, 1, 1)
+    GameTooltip:SetOwner(f.footerBtn, "ANCHOR_TOP")
+    GameTooltip:SetText("Click to copy the link to GitHub's issue tracker")
+    GameTooltip:Show()
+  end)
+  f.footerBtn:SetScript("OnLeave", function()
+    f.footer:SetTextColor(0.6, 0.6, 0.6)
+    GameTooltip:Hide()
+  end)
 
   f:Hide()
   SkinWindowChrome(f)
