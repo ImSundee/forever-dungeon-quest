@@ -482,6 +482,14 @@ quest's zone. `FDQ:IsPlayerInQuestZone()` compares `GetZoneText()`/
 (the text before the first comma, e.g. `"Orgrimmar, The Drag"` →
 `"Orgrimmar"`) to gate this. When the button is disabled, hovering it
 explains why (wrong zone, or no provider installed) via `GameTooltip`.
+`Button:Disable()` also disallows mouse interaction outright, which
+silently suppressed `OnEnter`/`OnLeave` along with `OnClick` -- the
+disabled-state tooltip was dead code until `row.waypoint:EnableMouse(true)`
+was added right after `:Disable()` in `LayoutRow` (`UI.lua`) to bring hover
+back without reintroducing clicks (a disabled button widget still blocks
+`OnClick` natively, mouse-enabled or not). Confirmed via user report
+(2026-09-25) that the tooltip wasn't appearing on the disabled crosshair at
+all.
 
 **Unverified** (no beta access from this dev environment, written directly
 against TomTom's documented API and Blizzard's `C_Map`/`C_SuperTrack` API):
