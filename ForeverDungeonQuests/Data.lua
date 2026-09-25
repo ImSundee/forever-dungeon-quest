@@ -60,7 +60,7 @@ FDQ_Dungeons = {
       { name = "The Unsent Letter", level = 16, faction = "Neutral", giver = "Drop from Edwin VanCleef", location = "The Deadmines", notes = "Prerequisite to pick up The Stockade Riots.", dungeonDrop = true },
       { name = "Red Silk Bandanas", level = 14, faction = "Alliance", giver = "Scout Riell", location = "Westfall, Sentinel Hill", coords = "56, 47", notes = "Prerequisite: complete 6 quests starting with The Defias Brotherhood (Gryan Stoutmantle, Sentinel Hill, Westfall)." },
       { name = "The Defias Brotherhood", level = 14, faction = "Alliance", giver = "Gryan Stoutmantle", location = "Westfall, Sentinel Hill", coords = "56, 47", notes = "Same prerequisites as Red Silk Bandanas." },
-      { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", notes = "Paladin only. Starts the Tome of Valor quest chain; start point varies by race." },
+      { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", classOnly = "PALADIN", notes = "Paladin only. Starts the Tome of Valor quest chain; start point varies by race." },
     },
   },
 
@@ -89,8 +89,8 @@ FDQ_Dungeons = {
       { name = "The Book of Ur", level = 16, faction = "Horde", giver = "Keeper Bel'dugur", location = "Undercity, Apothecarium", coords = "53, 54" },
       { name = "Deathstalkers in Shadowfang", level = 18, faction = "Horde", giver = "High Executor Hadrec", location = "Silverpine Forest, Sepulcher", coords = "43, 41" },
       { name = "Arugal Must Die", level = 18, faction = "Horde", giver = "Dalar Dawnweaver", location = "Silverpine Forest, Sepulcher", coords = "44, 39" },
-      { name = "The Orb of Soran'ruk", level = 20, faction = "Neutral", giver = "Doan Karhan", location = "The Barrens, near Camp Taurajo", coords = "49, 57", notes = "Warlock only." },
-      { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", notes = "Paladin only. Starts the Tome of Valor quest chain; start point varies by race." },
+      { name = "The Orb of Soran'ruk", level = 20, faction = "Neutral", giver = "Doan Karhan", location = "The Barrens, near Camp Taurajo", coords = "49, 57", classOnly = "WARLOCK", notes = "Warlock only." },
+      { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", classOnly = "PALADIN", notes = "Paladin only. Starts the Tome of Valor quest chain; start point varies by race." },
     },
   },
 
@@ -112,8 +112,8 @@ FDQ_Dungeons = {
       { name = "In Search of Thaelrid", level = 18, faction = "Alliance", giver = "Dawnwatcher Shaedlass", location = "Darnassus, Craftsman's Terrace", coords = "55, 24", notes = "Prerequisite to Blackfathom Villainy." },
       { name = "Blackfathom Villainy", level = 18, faction = "Alliance", giver = "Argent Guard Thaelrid", location = "Blackfathom Deeps, alcove SW of Ghamoo-ra", notes = "Requires In Search of Thaelrid." },
       -- Both (Neutral, class-restricted)
-      { name = "The Orb of Soran'ruk", level = 20, faction = "Neutral", giver = "Doan Karhan", location = "The Barrens, near Camp Taurajo", coords = "49, 57", notes = "Warlock only." },
-      { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", notes = "Paladin only." },
+      { name = "The Orb of Soran'ruk", level = 20, faction = "Neutral", giver = "Doan Karhan", location = "The Barrens, near Camp Taurajo", coords = "49, 57", classOnly = "WARLOCK", notes = "Warlock only." },
+      { name = "The Test of Righteousness", level = 20, faction = "Alliance", giver = "Jordan Stilwell", location = "Ironforge, inside Gates", coords = "52, 36", classOnly = "PALADIN", notes = "Paladin only." },
     },
   },
 
@@ -184,7 +184,7 @@ FDQ_Dungeons = {
       { name = "Compendium of the Fallen", level = 28, faction = "Horde", giver = "Sage Truthseeker", location = "Thunder Bluff, First Rise", coords = "36, 26", notes = "Undead cannot pick up this quest." },
       { name = "Test of Lore", level = 25, faction = "Horde", giver = "Parqual Fintallas", location = "Undercity, The Apothecarium", coords = "57, 65", notes = "Chain of 6 quests, starting with Test of Faith." },
       { name = "Mythology of the Titans", level = 28, faction = "Alliance", giver = "Librarian Mae Paledust", location = "Ironforge, Hall of Explorers", coords = "75, 12" },
-      { name = "Rituals of Power", level = 30, faction = "Neutral", giver = "Magus Tirth", location = "Thousand Needles, Shimmering Flats Raceway", coords = "78, 75", notes = "Mage only. Chain of 3 quests starting with Journey to the Marsh." },
+      { name = "Rituals of Power", level = 30, faction = "Neutral", giver = "Magus Tirth", location = "Thousand Needles, Shimmering Flats Raceway", coords = "78, 75", classOnly = "MAGE", notes = "Mage only. Chain of 3 quests starting with Journey to the Marsh." },
     },
   },
 
@@ -220,7 +220,7 @@ FDQ_Dungeons = {
       { name = "Power Stones", level = 30, faction = "Neutral", giver = "Rigglefuzz", location = "Badlands, Central", coords = "42, 52" },
       { name = "Solution to Doom", level = 30, faction = "Neutral", giver = "Theldurin the Lost", location = "Badlands, Southern", coords = "51, 76" },
       { name = "The Platinum Discs", level = 40, faction = "Neutral", giver = "Item pickup", location = "Uldaman, room after Archaedas" },
-      { name = "Power in Uldaman", level = 35, faction = "Neutral", giver = "Tabetha", location = "Dustwallow Marsh, N. of Stonemaul Ruins", coords = "46, 57", notes = "Mage only. Chain of 3 quests starting with Return to the Marsh." },
+      { name = "Power in Uldaman", level = 35, faction = "Neutral", giver = "Tabetha", location = "Dustwallow Marsh, N. of Stonemaul Ruins", coords = "46, 57", classOnly = "MAGE", notes = "Mage only. Chain of 3 quests starting with Return to the Marsh." },
     },
   },
 
@@ -325,7 +325,7 @@ FDQ_Dungeons = {
       { name = "Lethtendris's Web", level = 54, faction = "Alliance", giver = "Latronicus Moonspear", location = "Feralas, Feathermoon Stronghold", coords = "30, 46" },
       { name = "Pusillin and the Elder Azj'Tordin", level = 54, faction = "Neutral", giver = "Azj'Tordin", location = "Feralas, Lariss Pavilion", coords = "76, 37" },
       { name = "Shards of the Felvine", level = 56, faction = "Neutral", giver = "Rabine Saturna", location = "Moonglade, Nighthaven", coords = "51, 45", notes = "Complete A Reliquary of Purity from the same NPC and explore all of Dire Maul first.", prereqs = { "A Reliquary of Purity" } },
-      { name = "Arcane Refreshment", level = 60, faction = "Neutral", giver = "Lorekeeper Lydros", location = "Dire Maul, Library", notes = "Mage only." },
+      { name = "Arcane Refreshment", level = 60, faction = "Neutral", giver = "Lorekeeper Lydros", location = "Dire Maul, Library", classOnly = "MAGE", notes = "Mage only." },
     },
   },
 
@@ -380,7 +380,7 @@ FDQ_Dungeons = {
     keyNote = "At least one player must have the Skeleton Key to open the front door in Caer Darrow.",
     quests = {
       { name = "Barov Family Fortune", level = 52, faction = "Horde", giver = "Alexi Barov", location = "Tirisfal Glades, The Bulwark", coords = "83, 71", notes = "May be dead due to Alliance kill quest; 30 minute spawn timer." },
-      { name = "The Darkreaver Menace", level = 58, faction = "Horde", giver = "Sagorne Creststrider", location = "Orgrimmar, Valley of Wisdom", coords = "38, 35", notes = "Shaman only. Complete Material Assistance first.", prereqs = { "Material Assistance" } },
+      { name = "The Darkreaver Menace", level = 58, faction = "Horde", giver = "Sagorne Creststrider", location = "Orgrimmar, Valley of Wisdom", coords = "38, 35", classOnly = "SHAMAN", notes = "Shaman only. Complete Material Assistance first.", prereqs = { "Material Assistance" } },
       { name = "Barov Family Fortune", level = 52, faction = "Alliance", giver = "Weldon Barov", location = "Western Plaguelands, Chillwind Camp", coords = "43, 83", notes = "May be dead due to Horde kill quest; 30 minute spawn timer." },
       { name = "Plagued Hatchlings", level = 55, faction = "Neutral", giver = "Betina Bigglezink", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59" },
       { name = "Healthy Dragon Scale", level = 55, faction = "Neutral", giver = "Drop from Plagued Hatchlings", location = "Scholomance", notes = "Repeatable for Argent Dawn rep. Complete Plagued Hatchlings first.", dungeonDrop = true, prereqs = { "Plagued Hatchlings" } },
