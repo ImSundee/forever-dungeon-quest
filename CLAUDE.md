@@ -396,10 +396,10 @@ against the same `activeTitles`/`FDQ_DB.completedTitles` lookups every
 other quest uses (see "Quest matching is by title" above), so external
 breadcrumb quests (e.g. `"Badlands Reagent Run"`, `"Raptor Horns"`) resolve
 correctly even with no corresponding dungeon-quest row. `FDQ:BuildReport()`
-attaches `prereqStatuses` (a list of `{name=, status=}`, `status` one of
-`"active"/"completed"/"missing"` -- no `"dungeon-drop"` case, since a
-prereq is by definition something picked up *before* entering) to each
-report row.
+attaches `prereqStatuses` (a list of `{name=, status=, giver=, location=,
+coords=}`, `status` one of `"active"/"completed"/"missing"` -- no
+`"dungeon-drop"` case, since a prereq is by definition something picked up
+*before* entering) to each report row.
 
 In `UI.lua`, a quest with `quest.prereqs` gets a `[+]`/`[-]` prefix on its
 name (ASCII, not a unicode disclosure triangle -- see the font-tofu note
@@ -416,11 +416,54 @@ per quest; `LayoutRow`'s returned height now accounts for however many
 prereq lines are currently shown, so later rows in the table shift down
 correctly, same as the existing `notes`-line height bump.
 
+**Prereq giver/location/coords (`FDQ_PrereqInfo`)**: an expanded prereq
+line originally showed only a name and status -- no way to actually go get
+it. `Data.lua` now has a separate `FDQ_PrereqInfo` table, keyed by prereq
+name, holding `{ giver=, location=, coords= }` for ~80 of the ~103 distinct
+prereq quests referenced across `Data.lua`'s `prereqs` arrays. It's kept as
+its own lookup table rather than fields on the `prereqs` entries themselves
+(`prereqs = { "Name", ... }` stays plain strings) for two reasons: it
+avoids touching every chain's array syntax to add this, and several chains
+reuse the same breadcrumb quest (e.g. `"Badlands Reagent Run"`, though that
+particular one is faction-forked and deliberately excluded -- see below),
+so one `FDQ_PrereqInfo` entry covers every chain that lists it.
+`FDQ:GetPrereqStatuses` (`Core.lua`) looks up each prereq's name in this
+table and merges `giver`/`location`/`coords` onto its status entry; a name
+missing from `FDQ_PrereqInfo` just renders without the extra detail, same
+as before. `UI.lua`'s expanded prereq line appends `"(giver - location)"`
+next to the status, and grows its own pooled crosshair waypoint button
+(`row.prereqWaypoints`, mirroring the main per-row `row.waypoint`) when
+`coords` is present -- it builds a small pseudo-quest table
+(`{name=, coords=, location=}`) and hands it straight to
+`FDQ:SetQuestWaypoint`/`IsPlayerInQuestZone`/`GetQuestZoneName`
+(`Waypoint.lua`), which only ever read those three fields off whatever
+table they're given, so no changes were needed there.
+
+`FDQ_PrereqInfo` was populated by researching each prereq name individually
+via web search (not a live browser pull -- Wowhead itself is unreachable
+from this dev environment, see "Data source" above) and cross-checked
+against this file's own already-verified entries wherever the same
+quest/NPC also has a full `Data.lua` row elsewhere (e.g. `"Raptor Horns"`
+reuses `"Smart Drinks"`'s confirmed Mebok Mizzyrix/Ratchet data). About 20
+names were deliberately left out of the table rather than guessed at:
+faction- or race-forked givers where a single entry would be wrong for half
+the playerbase (`"Badlands Reagent Run"`, `"Redemption"`, `"Just
+Compensation"`, `"Journey to the Marsh"`, `"In Search of Anthion"`), and
+names where research turned up conflicting or no confident source
+(`"Thadius Grimshade"`, `"The Sunken Temple"`, `"Chillwind Horns"`,
+`"Egg Freezing"`, and others). Wrong location data is worse than none, so
+these just don't show the extra detail yet -- fill them in via
+`FDQ_PrereqInfo` once confirmed.
+
 **Untested**: like the rest of the UI (see "UI shape" above), not yet
 confirmed in-game -- specifically whether the `[+]`/`[-]` click target
 (`row.expandBtn`, sized to the full name-column width) feels natural to
-click versus just clicking directly on the quest name text, and whether
-the extra indented lines read clearly at the table's normal font size.
+click versus just clicking directly on the quest name text, whether the
+extra indented lines (now potentially longer with giver/location text plus
+a waypoint icon) read clearly at the table's normal font size, and whether
+the pooled prereq waypoint buttons collide visually with long prereq names
+at the table's current width. The `FDQ_PrereqInfo` data itself is
+unconfirmed against a live client the same way the rest of `Data.lua` is.
 
 ### Faction filtering
 
