@@ -452,3 +452,113 @@ FDQ_Dungeons = {
     },
   },
 }
+
+-- FDQ_PrereqInfo: giver/location/coords for quest.prereqs entries (see
+-- CLAUDE.md "Prerequisite quests"). Keyed by the exact prereq name string
+-- (or a {name=} entry's name) -- Core.lua's GetPrereqStatuses looks this up
+-- per prereq so the expanded UI row can show "where do I get this" instead
+-- of just a status. Kept separate from the prereqs = { "..." } arrays
+-- themselves (rather than turning every one into { name=, giver=, ... }
+-- tables) so this can be populated/extended without touching that syntax,
+-- and so chains that reuse the same breadcrumb quest (e.g. "Badlands
+-- Reagent Run") share one entry.
+--
+-- Populated by researching each name individually (WebSearch, since
+-- Wowhead itself is unreachable from this dev environment -- see CLAUDE.md
+-- "Data source"), cross-checked against this file's own already-verified
+-- giver/location/coords wherever the same quest/NPC also has a full
+-- Data.lua entry elsewhere (e.g. "Raptor Horns" matches "Smart Drinks"'s
+-- Mebok Mizzyrix). Same Beta/Classic-backfill caveat as the rest of this
+-- file applies: best-effort, not confirmed in-game.
+--
+-- Deliberately NOT exhaustive: ~20 prereq names were left out rather than
+-- guessed at, because research turned up either conflicting sources, a
+-- faction/race-forked giver (a single entry would be wrong for half the
+-- playerbase, e.g. "Badlands Reagent Run", "Redemption", "Just
+-- Compensation"), or no confident answer at all (e.g. "The Sunken Temple",
+-- "Thadius Grimshade"). A prereq name missing here just renders without
+-- the extra detail -- not a bug, just unresearched/unconfirmed.
+FDQ_PrereqInfo = {
+  ["A Portable Power Source"] = { giver = "Mux Manascrambler", location = "Tanaris, Gadgetzan" },
+  ["A Reliquary of Purity"] = { giver = "Rabine Saturna", location = "Moonglade, Nighthaven" },
+  ["A Shifty Merchant"] = { giver = "Mux Manascrambler", location = "Tanaris, Gadgetzan" },
+  ["A Supernatural Device"] = { giver = "Mux Manascrambler", location = "Tanaris, Gadgetzan" },
+  ["Altered Beings"] = { giver = "Tonga Runetotem", location = "The Barrens, Crossroads" },
+  ["Betina Bigglezink"] = { giver = "Betina Bigglezink", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59" },
+  ["Blood Tinged Skies"] = { giver = "Tirion Fordring", location = "Eastern Plaguelands, Light's Hope Chapel" },
+  ["Broodling Essence"] = { giver = "Tinkee Steamboil", location = "Burning Steppes, Flame Crest" },
+  ["Carrion Grubbage"] = { giver = "Tirion Fordring", location = "Eastern Plaguelands, Light's Hope Chapel" },
+  ["Demon Dogs"] = { giver = "Tirion Fordring", location = "Eastern Plaguelands, Light's Hope Chapel" },
+  ["Disharmony of Flame"] = { giver = "Thunderheart", location = "Badlands, Kargath", coords = "3.6, 48.0" },
+  ["Doctor Theolen Krastinov, the Butcher"] = { giver = "Eva Sarkhoff", location = "Western Plaguelands, Caer Darrow", coords = "70, 73" },
+  ["Duskwing, Oh How I Hate Thee..."] = { giver = "Nathanos Blightcaller", location = "Eastern Plaguelands, Marris Stead", coords = "26, 74" },
+  ["Egg Collection"] = { giver = "Tinkee Steamboil", location = "Burning Steppes, Flame Crest", coords = "65, 23" },
+  ["Eitrigg's Wisdom"] = { giver = "Eitrigg", location = "Orgrimmar, Valley of Strength" },
+  ["Find Agmond"] = { giver = "Prospector Ironband", location = "Loch Modan, Ironband's Excavation Site", coords = "65, 65" },
+  ["Get the Scoop"] = { giver = "Magus Tirth", location = "Thousand Needles, Shimmering Flats", coords = "77, 76" },
+  ["Gnogaine"] = { giver = "Ozzie Togglevolt", location = "Dun Morogh, Kharanos", coords = "45, 49" },
+  ["Going, Going, Guano!"] = { giver = "Master Apothecary Faranell", location = "Undercity, The Apothecarium", coords = "48, 69" },
+  ["Grark Lorkrub"] = { giver = "Lexlort", location = "Badlands, Kargath", coords = "6, 48" },
+  ["Gryphon Master Talonaxe"] = { giver = "Gryphon Master Talonaxe", location = "The Hinterlands", coords = "49, 68" },
+  ["Hidden Secrets"] = { giver = "Magus Tirth", location = "Thousand Needles, Shimmering Flats" },
+  ["Hunting for Ectoplasm"] = { giver = "Mux Manascrambler", location = "Tanaris, Gadgetzan" },
+  ["In Search of The Temple"] = { giver = "Brohann Caskbelly", location = "Stormwind, Dwarven District", coords = "64, 21" },
+  ["Ironband Wants You!"] = { giver = "Prospector Ironband", location = "Loch Modan, Ironband's Excavation Site", coords = "65, 65" },
+  ["KILL ON SIGHT: Dark Iron Dwarves"] = { giver = "WANTED poster", location = "Badlands, Kargath", coords = "4, 47" },
+  ["KILL ON SIGHT: High Ranking Dark Iron Officials"] = { giver = "WANTED poster", location = "Badlands, Kargath", coords = "4, 47" },
+  ["Kharan Mighthammer"] = { giver = "King Magni Bronzebeard", location = "Ironforge, Throne Room", coords = "39, 56" },
+  ["Kirtonos the Herald"] = { giver = "Eva Sarkhoff", location = "Western Plaguelands, Caer Darrow", coords = "70, 73" },
+  ["Krastinov's Bag of Horrors"] = { giver = "Eva Sarkhoff", location = "Western Plaguelands, Caer Darrow", coords = "70, 73" },
+  ["Larion and Muigin"] = { giver = "Larion", location = "Un'Goro Crater, Marshal's Refuge" },
+  ["Legends of Maraudon"] = { giver = "Cavindra", location = "Maraudon, Orange side, outside instance" },
+  ["Leonid Barthalomew"] = { giver = "Leonid Barthalomew the Revered", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 57" },
+  ["Lonebrow's Journal"] = { giver = "Henrig Lonebrow's corpse", location = "Thousand Needles, near the Great Lift", coords = "31, 24" },
+  ["Lorax's Tale"] = { giver = "Lorax", location = "Winterspring, Southeast", coords = "63, 73" },
+  ["Marvon's Workshop"] = { giver = "Liv Rizzlefix", location = "The Barrens, Ratchet", coords = "62, 38" },
+  ["Material Assistance"] = { giver = "Sagorne Creststrider", location = "Orgrimmar, Valley of Wisdom", coords = "38, 35" },
+  ["Murdaloc"] = { giver = "Prospector Ironband", location = "Loch Modan, Ironband's Excavation Site", coords = "65, 65" },
+  ["Nara Wildmane"] = { giver = "Nara Wildmane", location = "Thunder Bluff, Elder Rise", coords = "45, 23" },
+  ["Of Forgotten Memories"] = { giver = "Tirion Fordring", location = "Eastern Plaguelands, Light's Hope Chapel" },
+  ["Of Lost Honor"] = { giver = "Tirion Fordring", location = "Eastern Plaguelands, Light's Hope Chapel" },
+  ["Overmaster Pyron"] = { giver = "Jalinda Sprig", location = "Burning Steppes, Morgan's Vigil", coords = "85, 70" },
+  ["Plagued Hatchlings"] = { giver = "Betina Bigglezink", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59" },
+  ["Poisoned Water"] = { giver = "Duke Hydraxis", location = "Azshara", coords = "79, 73" },
+  ["Pool of Tears"] = { giver = "Fel'zerul", location = "Swamp of Sorrows, Stonard", coords = "47, 54" },
+  ["Precarious Predicament"] = { giver = "Lexlort", location = "Badlands, Kargath", coords = "6, 48" },
+  ["Raptor Horns"] = { giver = "Mebok Mizzyrix", location = "The Barrens, Ratchet", coords = "62, 37" },
+  ["Return to Fel'Zerul"] = { giver = "Atal'ai Exile", location = "The Hinterlands, Shadra'Alor", coords = "33, 75" },
+  ["Return to the Marsh"] = { giver = "Tabetha", location = "Dustwallow Marsh, N. of Stonemaul Ruins", coords = "46, 57" },
+  ["Rig Wars"] = { giver = "Nogg", location = "Orgrimmar, Valley of Honor", coords = "76, 25" },
+  ["Scourge of the Downs"] = { giver = "Belnistrasz", location = "Razorfen Downs, Murder Pens" },
+  ["Screecher Spirits"] = { giver = "Yeh'kinya", location = "Tanaris, Steamwheedle Port", coords = "67, 22" },
+  ["Stormers and Rumblers"] = { giver = "Duke Hydraxis", location = "Azshara", coords = "79, 73" },
+  ["The Altar of Zul"] = { giver = "Gryphon Master Talonaxe", location = "The Hinterlands", coords = "49, 68" },
+  ["The Ancient Egg"] = { giver = "Yeh'kinya", location = "Tanaris, Steamwheedle Port", coords = "66, 23" },
+  ["The Archivist"] = { giver = "Duke Nicholas Zverenhoff", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59" },
+  ["The Atal'ai Exile"] = { giver = "Atal'ai Exile", location = "The Hinterlands, Shadra'Alor", coords = "33, 75" },
+  ["The Dark Iron War"] = { giver = "Motley Garmason", location = "Wetlands, Dun Modr" },
+  ["The Dying, Ras Frostwhisper"] = { giver = "Leonid Barthalomew the Revered", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 57" },
+  ["The Ectoplasmic Distiller"] = { giver = "Mux Manascrambler", location = "Tanaris, Gadgetzan" },
+  ["The Exorcism"] = { giver = "Tabetha", location = "Dustwallow Marsh, N. of Stonemaul Ruins", coords = "46, 57" },
+  ["The Flesh Does Not Lie"] = { giver = "Betina Bigglezink", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59" },
+  ["The Forgotten Pools"] = { giver = "Tonga Runetotem", location = "The Barrens, Crossroads" },
+  ["The God Hakkar"] = { giver = "Yeh'kinya", location = "Tanaris, Steamwheedle Port", coords = "67, 22" },
+  ["The Human, Ras Frostwhisper"] = { giver = "Magistrate Marduke", location = "Arathi Highlands, Stromgarde" },
+  ["The Infernal Orb"] = { giver = "Tabetha", location = "Dustwallow Marsh, N. of Stonemaul Ruins", coords = "46, 57" },
+  ["The Lost Dwarves"] = { giver = "Prospector Stormpike", location = "Ironforge, Hall of Explorers", coords = "75, 12" },
+  ["The Lost Tablets of Mosh'aru"] = { giver = "Prospector Ironboot", location = "Tanaris, Steamwheedle Port", coords = "66, 24" },
+  ["The Medallion of Faith"] = { giver = "Aurius", location = "Stratholme, Undead Side, inside chapel at beginning" },
+  ["The Prophecy of Mosh'aru"] = { giver = "Yeh'kinya", location = "Tanaris, Steamwheedle Port", coords = "67, 22" },
+  ["The Ranger Lord's Behest"] = { giver = "Nathanos Blightcaller", location = "Eastern Plaguelands, Marris Stead", coords = "26, 74" },
+  ["The Restless Souls"] = { giver = "Egan", location = "Eastern Plaguelands, Terrordale", coords = "14, 33" },
+  ["The Stagnant Oasis"] = { giver = "Tonga Runetotem", location = "The Barrens, Crossroads" },
+  ["The Stone Circle"] = { giver = "Marvon Rivetseeker", location = "Tanaris, S. of Gadgetzan", coords = "52, 45" },
+  ["The Truth Comes Crashing Down"] = { giver = "Drop from Balnazzar", location = "Stratholme, Live Side" },
+  ["The Unsent Letter"] = { giver = "Drop from Edwin VanCleef", location = "The Deadmines" },
+  ["Tinkee Steamboil"] = { giver = "Felnok Steelspring", location = "Winterspring, Everlook" },
+  ["To The Hinterlands"] = { giver = "High Thane Falstad Wildhammer", location = "The Hinterlands, Aerie Peak", coords = "14, 44" },
+  ["Undamaged Venom Sac"] = { giver = "Apothecary Lydon", location = "Hillsbrad Foothills, Tarren Mill" },
+  ["Venom Bottles"] = { giver = "Apothecary Lydon", location = "Hillsbrad Foothills, Tarren Mill" },
+  ["Warlord's Command"] = { giver = "Warlord Goretooth", location = "Badlands, Kargath", coords = "5, 47" },
+  ["Witherbark Cages"] = { giver = "Gryphon Master Talonaxe", location = "The Hinterlands", coords = "49, 68" },
+}
