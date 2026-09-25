@@ -435,6 +435,16 @@ local function CreateMainFrame()
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  -- Left at the default "MEDIUM" strata, this sat behind unit frames from
+  -- some third-party unit frame addons (and cast shadows through them) --
+  -- reported in-game (2026-09-25). "DIALOG" is the same strata the clean
+  -- dropdown's own popout menu uses (see CreateCleanDropdown above), so the
+  -- window now sits above ordinary UI panels/unit frames the way a modal
+  -- dialog would. SetToplevel makes clicking anywhere on the frame raise it
+  -- above any other same-strata frame (e.g. the entry-alert toast, or a
+  -- second reload of this same window).
+  f:SetFrameStrata("DIALOG")
+  f:SetToplevel(true)
 
   -- Fallback look for players without EllesmereUI: a plain flat panel
   -- instead of the ornate DialogFrame parchment/gold-trim template.
@@ -921,6 +931,11 @@ function FDQ:ShowMain(dungeon)
   end
 
   mainFrame:Show()
+  -- SetToplevel (see CreateMainFrame) only auto-raises the frame on click --
+  -- Show() alone doesn't, so a stale click on something else earlier in the
+  -- session could otherwise leave this window under another DIALOG-strata
+  -- frame the next time it's opened.
+  mainFrame:Raise()
 end
 
 -- Used by the minimap button: hide the window if it's open, otherwise open it.

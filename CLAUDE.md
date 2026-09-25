@@ -95,6 +95,20 @@ isn't a per-frame hot path) and whether the fixed `COL` widths clip any
 quest name in `Data.lua` — worth a pass once in-game with EllesmereUI both
 present and absent.
 
+**Confirmed in-game (2026-09-25): frame strata**. Left at the default
+`"MEDIUM"` strata `CreateFrame` gives every frame, the main window rendered
+*behind* some players' third-party unit frames, with the unit frame's own
+backdrop showing through as a stray shadow over the addon's window.
+`CreateMainFrame()` now explicitly sets `f:SetFrameStrata("DIALOG")` —
+matching the strata `CreateCleanDropdown`'s own popout menu already used
+(see below) — and `f:SetToplevel(true)` so clicking the window raises it
+above any other `DIALOG`-strata frame. `FDQ:ShowMain()` also calls
+`mainFrame:Raise()` right after `Show()`, since `SetToplevel` only
+auto-raises on click, not on a programmatic `Show()`. The entry-alert toast
+(`CreateEntryAlertFrame`) stays at `"HIGH"` (below `"DIALOG"`) since it's a
+transient notification, not something that should compete with the main
+window for top billing when both happen to be open.
+
 ### Minimap button
 
 Hand-rolled rather than pulling in LibDataBroker/LibDBIcon, to keep the addon
