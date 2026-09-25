@@ -75,22 +75,16 @@ local FONT_CANDIDATES = {
 local BUNDLED_FONT = "Interface\\AddOns\\ForeverDungeonQuests\\Fonts\\Overpass-Regular.ttf"
 
 local FONT_PATH
-local FONT_SOURCE -- for the debug print below
 do
   local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
   if LSM then
     FONT_PATH = LSM:Fetch("font", "Expressway", true)
-    if FONT_PATH then
-      FONT_SOURCE = "LibSharedMedia"
-    end
   end
   if not FONT_PATH and EllesmereUI then
     FONT_PATH = FONT_CANDIDATES[1]
-    FONT_SOURCE = "EllesmereUI path guess"
   end
   if not FONT_PATH then
     FONT_PATH = BUNDLED_FONT
-    FONT_SOURCE = "bundled Overpass (OFL)"
   end
 end
 
@@ -98,32 +92,17 @@ end
 -- actually work (e.g. EllesmereUI global existed but the file path guess
 -- was wrong) -- stops retrying a broken path on every single FontString.
 local fontPathFailed = false
-local fontDebugPrinted = false
-
--- One-shot diagnostic so we can tell exactly where this is failing instead
--- of guessing blindly -- remove once the font situation is confirmed
--- working (or not) in-game. See CLAUDE.md.
-local function PrintFontDebug(setFontOk)
-  if fontDebugPrinted then return end
-  fontDebugPrinted = true
-  print(string.format(
-    "|cff33ff99Forever Dungeon Quests|r font debug: LibStub=%s FONT_PATH=%s (source=%s) SetFont ok=%s",
-    tostring(LibStub ~= nil), tostring(FONT_PATH), tostring(FONT_SOURCE), tostring(setFontOk)
-  ))
-end
 
 -- Swaps a FontString's typeface to FONT_PATH while keeping whatever size/
 -- outline flags it already has from its template. No-op if FONT_PATH
 -- wasn't found or turned out not to work (see above).
 local function ApplyDefaultFont(fontString)
   if not FONT_PATH or fontPathFailed then
-    PrintFontDebug(nil)
     return
   end
   local _, size, flags = fontString:GetFont()
   if not size then return end
   local ok = fontString:SetFont(FONT_PATH, size, flags)
-  PrintFontDebug(ok)
   if not ok then
     fontPathFailed = true
   end

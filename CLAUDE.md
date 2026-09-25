@@ -228,10 +228,10 @@ brand label above its title.
   path as the final fallback. EllesmereUI's own `skin.Font()` call, when
   present, runs *after* `ApplyDefaultFont` in every call site, so EUI's own
   live font choice still wins when EUI is actively skinning this addon.
-  `PrintFontDebug` prints a one-shot chat line reporting `LibStub` presence,
-  the resolved `FONT_PATH`/`FONT_SOURCE`, and whether `SetFont` succeeded --
-  useful to leave in for now given how much back-and-forth this took to
-  nail down; remove once confident it's not needed anymore.
+  The one-shot `PrintFontDebug` diagnostic (reporting `LibStub` presence,
+  the resolved `FONT_PATH`/source, and whether `SetFont` succeeded) has been
+  removed now that the LibSharedMedia/Expressway path is confirmed working
+  in-game (2026-09-24, see the confirmation above).
 - **Accent color**: the dropdown menu's selected-row swatch calls
   `GetAccentColor()`, which prefers EllesmereUI's live `S.GetAccentColor()`
   over the static `ACCENT_COLOR` fallback table when `skin` is set. Not
