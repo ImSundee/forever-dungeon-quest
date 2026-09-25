@@ -716,6 +716,9 @@ local function GetRow(f, index)
     -- Lazily-grown pool of prereq status lines shown under a row when
     -- expanded -- count varies per quest, unlike the fixed cells above.
     row.prereqFS = {}
+    -- Parallel pool of waypoint crosshair buttons, one per prereq line that
+    -- has coords (via FDQ_PrereqInfo -- see GetPrereqWaypoint below).
+    row.prereqWaypoints = {}
 
     f.rows[index] = row
   end
@@ -733,6 +736,36 @@ local function GetPrereqLine(f, row, idx)
     row.prereqFS[idx] = fs
   end
   return fs
+end
+
+-- A waypoint button for one expanded prereq line, same crosshair icon/
+-- hover behavior as the main per-row row.waypoint (see GetRow above) but
+-- pooled per prereq line instead of per quest row. Not passed to
+-- skin.Button for the same reason row.waypoint isn't -- it has no normal/
+-- pushed/highlight texture slots for EllesmereUI's skinning to grab.
+local function GetPrereqWaypoint(f, row, idx)
+  local btn = row.prereqWaypoints[idx]
+  if not btn then
+    btn = CreateCrosshairButton(f.tableContent)
+    btn:SetIconColor(1, 1, 1, 0.9)
+    btn:SetScript("OnEnter", function(self)
+      if self:IsEnabled() then
+        local r, g, b = GetAccentColor()
+        self:SetIconColor(r, g, b, 1)
+      end
+      GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+      GameTooltip:SetText(self.fdqTooltip or "Set a waypoint.")
+      GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function(self)
+      if self:IsEnabled() then
+        self:SetIconColor(1, 1, 1, 0.9)
+      end
+      GameTooltip_Hide()
+    end)
+    row.prereqWaypoints[idx] = btn
+  end
+  return btn
 end
 
 -- Positions row `index`'s cells at vertical offset `y` (both in the table's
@@ -826,22 +859,73 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
 
   -- Expanded prereq lines: each shows the prereq's own quest status via
   -- STATUS_COLOR/STATUS_LABEL (reusing the same "completed"/"active"/
-  -- "missing" keys the main quest table already uses).
+  -- "missing" keys the main quest table already uses), plus giver/location
+  -- from FDQ_PrereqInfo when available (same "giver - location" shape as the
+  -- main Pickup column), and its own waypoint button when coords are known.
   if quest.prereqs and expandedQuests[quest] and prereqStatuses then
     for i, entry in ipairs(prereqStatuses) do
       local fs = GetPrereqLine(f, row, i)
       fs:ClearAllPoints()
       fs:SetPoint("TOPLEFT", COL.name.x + 14, -(y + height))
-      fs:SetText("- " .. entry.name .. ": " .. STATUS_COLOR[entry.status] .. STATUS_LABEL[entry.status] .. "|r")
+      local text = "- " .. entry.name .. ": " .. STATUS_COLOR[entry.status] .. STATUS_LABEL[entry.status] .. "|r"
+      if entry.giver or entry.location then
+        text = text .. "  |cff888888(" .. (entry.giver or "?")
+        if entry.location then
+          text = text .. " - " .. entry.location
+        end
+        text = text .. ")|r"
+      end
+      fs:SetText(text)
       fs:Show()
+
+      local waypointBtn = GetPrereqWaypoint(f, row, i)
+      waypointBtn:ClearAllPoints()
+      waypointBtn:SetPoint("TOPRIGHT", f.tableContent, "TOPRIGHT", -WAYPOINT_RIGHT_PAD, -(y + height))
+      if entry.coords then
+        -- FDQ:SetQuestWaypoint/IsPlayerInQuestZone/GetQuestZoneName only
+        -- read name/coords/location off whatever table they're given, so a
+        -- small pseudo-quest works the same as a real Data.lua entry here.
+        local pseudoQuest = { name = entry.name, coords = entry.coords, location = entry.location }
+        local provider = FDQ:GetWaypointProvider()
+        local inZone = FDQ:IsPlayerInQuestZone(pseudoQuest)
+        waypointBtn:Show()
+        if provider and inZone then
+          waypointBtn:Enable()
+          waypointBtn:SetIconColor(1, 1, 1, 0.9)
+          waypointBtn.fdqTooltip = "Set a waypoint to this prerequisite's quest giver" ..
+            (provider == "TomTom" and " (TomTom)." or ".")
+        else
+          waypointBtn:Disable()
+          waypointBtn:SetIconColor(0.5, 0.5, 0.5, 0.4)
+          if not provider then
+            waypointBtn.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
+          else
+            local zone = FDQ:GetQuestZoneName(pseudoQuest)
+            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint here.")
+              or "Not available from your current zone."
+          end
+        end
+        waypointBtn:SetScript("OnClick", function()
+          FDQ:SetQuestWaypoint(pseudoQuest)
+        end)
+      else
+        waypointBtn:Hide()
+      end
+
       height = height + NOTE_HEIGHT
     end
     for i = #prereqStatuses + 1, #row.prereqFS do
       row.prereqFS[i]:Hide()
     end
+    for i = #prereqStatuses + 1, #row.prereqWaypoints do
+      row.prereqWaypoints[i]:Hide()
+    end
   else
     for _, fs in ipairs(row.prereqFS) do
       fs:Hide()
+    end
+    for _, btn in ipairs(row.prereqWaypoints) do
+      btn:Hide()
     end
   end
 
@@ -892,6 +976,9 @@ function FDQ:SelectDungeon(dungeon)
     row.expandBtn:Hide()
     for _, fs in ipairs(row.prereqFS) do
       fs:Hide()
+    end
+    for _, btn in ipairs(row.prereqWaypoints) do
+      btn:Hide()
     end
   end
 

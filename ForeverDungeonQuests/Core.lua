@@ -190,16 +190,28 @@ function FDQ:GetPrereqStatus(prereqEntry, activeTitles, activeIDs, completedIDs)
   return "missing"
 end
 
--- Returns { {name=, status=}, ... } for quest.prereqs, or nil if the quest
--- has none.
+-- Returns { {name=, status=, giver=, location=, coords=}, ... } for
+-- quest.prereqs, or nil if the quest has none. giver/location/coords come
+-- from FDQ_PrereqInfo (Data.lua), a separate name-keyed lookup rather than
+-- fields on the prereqs entry itself -- that way enriching a prereq with
+-- "where do I get this" data doesn't require touching every quest's
+-- prereqs = { "..." } array syntax, and the same info is shared across every
+-- quest that lists the same prereq name (several chains reuse breadcrumbs
+-- like "Badlands Reagent Run"). A name missing from FDQ_PrereqInfo just
+-- means no location data was found for it yet -- the prereq line still
+-- renders, just without the extra detail.
 function FDQ:GetPrereqStatuses(quest, activeTitles, activeIDs, completedIDs)
   if not quest.prereqs then return nil end
   local statuses = {}
   for _, prereqEntry in ipairs(quest.prereqs) do
     local name = FDQ:NormalizePrereqEntry(prereqEntry)
+    local info = FDQ_PrereqInfo and FDQ_PrereqInfo[name]
     table.insert(statuses, {
       name = name,
       status = FDQ:GetPrereqStatus(prereqEntry, activeTitles, activeIDs, completedIDs),
+      giver = info and info.giver,
+      location = info and info.location,
+      coords = info and info.coords,
     })
   end
   return statuses
