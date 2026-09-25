@@ -538,15 +538,42 @@ quest's zone. `FDQ:IsPlayerInQuestZone()` compares `GetZoneText()`/
 `GetSubZoneText()` against the zone name parsed out of `quest.location`
 (the text before the first comma, e.g. `"Orgrimmar, The Drag"` →
 `"Orgrimmar"`) to gate this. When the button is disabled, hovering it
-explains why (wrong zone, or no provider installed) via `GameTooltip`.
-`Button:Disable()` also disallows mouse interaction outright, which
-silently suppressed `OnEnter`/`OnLeave` along with `OnClick` -- the
-disabled-state tooltip was dead code until `row.waypoint:EnableMouse(true)`
-was added right after `:Disable()` in `LayoutRow` (`UI.lua`) to bring hover
-back without reintroducing clicks (a disabled button widget still blocks
-`OnClick` natively, mouse-enabled or not). Confirmed via user report
-(2026-09-25) that the tooltip wasn't appearing on the disabled crosshair at
-all.
+explains why (wrong zone, naming the zone by reading it back off
+`FDQ:GetQuestZoneName()`, or no provider installed) via `GameTooltip`.
+
+**Disabled-button tooltip, two attempts (2026-09-24/25)**: `Button:Disable()`
+also disallows mouse interaction outright, which silently suppressed
+`OnEnter`/`OnLeave` along with `OnClick` -- so the disabled-state tooltip
+never showed. First fix (2026-09-25) added `row.waypoint:EnableMouse(true)`
+right after `:Disable()` in `LayoutRow` (`UI.lua`), and was believed
+confirmed working via user report -- but the user found the tooltip *still*
+wasn't appearing after that, so `EnableMouse(true)` alone isn't reliable
+here (it's plausible the earlier "confirmed" report only ever exercised the
+enabled-state tooltip, not the disabled one). The actual fix is
+`Button:SetMotionScriptsWhileDisabled(true)`, set once in
+`CreateCrosshairButton` -- this is the Blizzard-documented API specifically
+for "keep firing OnEnter/OnLeave on a disabled button" (the same mechanism
+disabled action-bar buttons use for their own tooltips), rather than
+fighting the widget's disabled-state mouse handling after the fact. The
+`EnableMouse(true)` calls were removed from both disabled-branches
+(`row.waypoint` and the expanded-prereq-line `waypointBtn` in
+`GetPrereqWaypoint` -- a parallel/pooled button that had the same original
+bug fixed separately the same day, see "Prerequisite quests" below) now
+that `SetMotionScriptsWhileDisabled` covers both from one place. Both
+disabled-state tooltip messages were also reworded to always name the zone
+(via `FDQ:GetQuestZoneName()`) rather than just saying "wrong zone", per a
+follow-up user request -- falls back to a "couldn't be determined" message
+only when `quest.location`/`entry.location` itself is missing.
+
+**Still unverified**: `SetMotionScriptsWhileDisabled` hasn't been confirmed
+against a live Forever client either -- it's a long-standing Retail Button
+API, but nothing in this file has live-client confirmation (see "Game
+context"). If the tooltip is *still* not appearing after this, the next
+thing to check is whether `OnEnter`/`OnLeave` fire on this button at all
+(e.g. via a debug print), since that would point at something else
+entirely (frame strata/mouse-blocking by an overlapping frame, an error
+elsewhere in `LayoutRow` aborting before the script gets attached, etc.)
+rather than another disabled-state quirk.
 
 **Unverified** (no beta access from this dev environment, written directly
 against TomTom's documented API and Blizzard's `C_Map`/`C_SuperTrack` API):

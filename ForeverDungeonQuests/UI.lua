@@ -396,6 +396,12 @@ local function CreateCrosshairButton(parent)
   -- never fire (see the same note on row.expandBtn below).
   btn:EnableMouse(true)
   btn:RegisterForClicks("LeftButtonUp")
+  -- Disable() alone stops OnEnter/OnLeave from firing at all (not just
+  -- OnClick) -- EnableMouse(true) after Disable() isn't reliable for this.
+  -- SetMotionScriptsWhileDisabled is the actual Blizzard-supported API for
+  -- "keep showing tooltips on a disabled button" (same mechanism disabled
+  -- action bar buttons use), so set it once here instead.
+  btn:SetMotionScriptsWhileDisabled(true)
 
   local icon = CreateFrame("Frame", nil, btn)
   icon:SetSize(WAYPOINT_ICON_SIZE, WAYPOINT_ICON_SIZE)
@@ -821,19 +827,13 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
         (provider == "TomTom" and " (TomTom)." or ".")
     else
       row.waypoint:Disable()
-      -- Button:Disable() also disallows mouse interaction, which silently
-      -- kills OnEnter/OnLeave along with OnClick -- without this, the
-      -- disabled-state tooltip below (e.g. "wrong zone") never shows on
-      -- hover. Re-enabling mouse here doesn't bring OnClick back: a
-      -- disabled button widget still suppresses that natively.
-      row.waypoint:EnableMouse(true)
       row.waypoint:SetIconColor(0.5, 0.5, 0.5, 0.4)
       if not provider then
         row.waypoint.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
       else
         local zone = FDQ:GetQuestZoneName(quest)
-        row.waypoint.fdqTooltip = zone and ("You need to be in " .. zone .. " to set a waypoint here.")
-          or "You're in the wrong zone to set a waypoint for this quest."
+        row.waypoint.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint for this quest.")
+          or "This quest's zone couldn't be determined, so no waypoint can be set here."
       end
     end
     row.waypoint:SetScript("OnClick", function()
@@ -942,8 +942,8 @@ local function LayoutRow(f, index, y, quest, status, prereqStatuses)
             waypointBtn.fdqTooltip = "Install TomTom, or use a client with the built-in waypoint feature, to set a marker here."
           else
             local zone = FDQ:GetQuestZoneName(pseudoQuest)
-            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint here.")
-              or "Not available from your current zone."
+            waypointBtn.fdqTooltip = zone and ("Travel to " .. zone .. " to set a waypoint for this prerequisite.")
+              or "This prerequisite's zone couldn't be determined, so no waypoint can be set here."
           end
         end
         waypointBtn:SetScript("OnClick", function()
