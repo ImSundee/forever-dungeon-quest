@@ -108,9 +108,9 @@ FDQ_Dungeons = {
       { name = "Unending Torment", id = 97290, level = 15, faction = "Neutral", giver = "Inside dungeon", location = "Ruins of Lordaeron", notes = "5-step in-dungeon/Undercity chain; step order after the first two is best-effort (Wowhead's chain-order data doesn't fully disambiguate steps 3-4).", prereqs = { { name = "Unending Torment", id = 97288 }, { name = "Unending Torment", id = 97289 }, { name = "Unending Torment", id = 97292 }, { name = "Unending Torment", id = 97291 } } },
       { name = "Crest of Lordaeron", id = 95204, level = 15, faction = "Horde", giver = "Inside dungeon (turn in to Oran Snakewrithe, Undercity)", location = "Ruins of Lordaeron", dungeonDrop = true },
       { name = "Crest of Lordaeron", id = 95189, level = 15, faction = "Alliance", giver = "Inside dungeon (turn in to Lady Dena Kennedy, Stormwind City)", location = "Ruins of Lordaeron", dungeonDrop = true },
-      { name = "Abominable Creatures", id = 95250, level = 16, faction = "Neutral", giver = "TBD (beta data incomplete)", location = "TBD" },
+      { name = "Abominable Creatures", id = 95250, level = 16, faction = "Alliance", giver = "TBD (beta data incomplete)", location = "TBD" },
       { name = "Bloodied Insignia", id = 95195, level = 16, faction = "Alliance", giver = "General Marcus Jonathan", location = "Stormwind City" },
-      { name = "Remember That I Love You", id = 92415, level = 15, faction = "Neutral", giver = "TBD (beta data incomplete)", location = "TBD" },
+      { name = "Remember That I Love You", id = 92415, level = 15, faction = "Alliance", giver = "TBD (beta data incomplete)", location = "TBD" },
     },
   },
 
