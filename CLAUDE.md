@@ -981,12 +981,32 @@ the v0.3 single-window rework):
       LaRue, same quest) — Classic's title just never matched Forever's
       quest log at all, on any client language. `Data.lua`'s `name` field
       was corrected to match, not just given an `id`.
-      Net result: **every one of the original 218 top-level `Data.lua` quest
-      entries now has an `id`** (220 after the two faction-fork splits).
-      **Not done in this pass**: converting `prereqs` array entries (the
-      plain-string ones) to `{ name =, id = }` — issue #27 asked for this
-      too, but it's a substantially larger second pass (~150+ names) on top
-      of the top-level backfill above and was left for follow-up.
+      Net result: **every one of the original 217 top-level `Data.lua` quest
+      entries now has an `id`** (219 after the two faction-fork splits).
+      **`prereqs` backfill (2026-09-26, same-day follow-up)**: converted the
+      ~125 distinct plain-string names inside `prereqs` arrays to `{ name =,
+      id = }` too, using the same technique. 26 of them reused an `id`
+      already known from a top-level entry sharing that name (e.g.
+      `"Rig Wars"` as both a dungeon quest and a prereq elsewhere); the rest
+      were fresh Wowhead lookups. The faction-forked names already flagged
+      in `FDQ_PrereqInfo`'s own comment (`Badlands Reagent Run`, `Redemption`,
+      `Journey to the Marsh`, `In Search of Anthion`) turned out to be a mix:
+      `Redemption` and `Journey to the Marsh` actually had a single exact
+      match each (the extra search hits were unrelated fuzzy-titled quests
+      or items) and got a normal `id`; `Badlands Reagent Run` and `In Search
+      of Anthion` are genuinely faction-forked 2-ID pairs — `Badlands
+      Reagent Run` got a different `id` per using-context (Horde vs Alliance
+      `Uldaman Reagent Run` row, since each row already has its own known
+      faction), while `In Search of Anthion` (used only from the Neutral
+      `Dead Man's Plea`) got the array-id treatment instead, matching either
+      ID. `A Supernatural Device` and `The Sunken Temple` turned out to be
+      the same kind of 2-way faction fork (not previously flagged) and got
+      the same array-id fix. Only **one** prereq name remains plain-string:
+      `Just Compensation` (`Dead Man's Plea`'s prereqs) resolves to 15
+      near-identical same-titled Wowhead entries with no giver/side data to
+      tell them apart at all — left alone rather than guessed at, same
+      reasoning as everything else in this file that's deliberately
+      incomplete.
       **Unverified**: same caveat as issue #15's IDs — these are sourced
       from Wowhead's Forever DB during Beta, not confirmed against a live
       client's actual `C_QuestLog` values; worth a spot-check via
