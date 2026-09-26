@@ -5,6 +5,46 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 correspond to the GitHub Releases produced by `.github/workflows/release.yml`
 when a `v*` tag is pushed (see [CLAUDE.md](CLAUDE.md#releases)).
 
+## [0.6.0] - 2026-09-27
+
+[Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.6.0)
+
+### Added
+- Array-id matching in `Core.lua` (`FDQ:MatchesQuestID`) for quests where
+  the game hands out one of several interchangeable quest IDs for the same
+  action (e.g. `The Sparklematic 5200!`, `Just Compensation`).
+- CI lint against [Ketho/vscode-wow-api](https://github.com/Ketho/vscode-wow-api)'s
+  WoW API annotations.
+
+### Changed
+- **Quest matching no longer requires an English client.** Every top-level
+  quest entry and every `prereqs` entry in `Data.lua` now carries a real
+  `id = <questID>` (or an array of interchangeable IDs), traced live
+  against `wowhead.com/forever`'s Forever-specific quest database. Title
+  matching only ever worked on an English client, since `C_QuestLog`
+  resolves quest titles in the player's own locale while `Data.lua` stored
+  English transcriptions — this was silently reporting every quest as
+  "Missing" for non-English clients. `"Just Compensation"` was the very
+  last entry still needing this; it's now resolved as an interchangeable
+  quest (16 same-titled Wowhead entries, all the same quest, not distinct
+  steps).
+
+### Fixed
+- Two mislabeled `"Neutral"` entries that were actually faction-forked
+  (`Crest of Lordaeron`'s two turn-ins, and Blackrock Depths' `Bijou's
+  Belongings`/`Operative Bijou`) split into correct per-faction rows.
+- `The Great Fras Siabi` (Scholomance) was untrackable for every player
+  regardless of language — Forever renamed it from Classic's "The Great
+  Ezra Grimm" and the old title no longer matched.
+- `Abominable Creatures` and `Remember That I Love You` (Ruins of
+  Lordaeron) were mistranscribed as `Neutral` and showing for Horde;
+  both are Alliance-only quests.
+- `Leaders of the Fang` (Wailing Caverns) always showed a false
+  "Missing" for its `The Barrens Oases` prerequisite step for players who
+  entered the chain via the alternate starter `The Forgotten Pools`
+  instead — Tonga Runetotem hands out one or the other, never both, so
+  it's no longer treated as mandatory.
+
 ## [0.5.0] - 2026-09-25
 
 [Release](https://github.com/ImSundee/forever-dungeon-quest/releases/tag/v0.5.0)
