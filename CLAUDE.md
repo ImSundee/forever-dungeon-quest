@@ -929,6 +929,68 @@ the v0.3 single-window rework):
       — these aren't duplicate-title or research-access problems, see
       [issue #15](https://github.com/ImSundee/forever-dungeon-quest/issues/15)
       for why they're a different kind of blocked.
+- [x] **Non-English-client matching fix (issue #27)** — shipped (2026-09-26):
+      title-only matching silently reported every non-`id` quest as
+      "Missing" on non-English clients, since `C_QuestLog.GetTitleForQuestID`/
+      `GetInfo().title` resolve in the client's own locale while `Data.lua`
+      stores the English transcription (see "Quest matching is by title"
+      above). Backfilled `id` for 199 of 217 top-level `Data.lua` quest
+      entries (up from the ~13 issue #15 had already ID'd), traced live via
+      `claude-in-chrome` against **`wowhead.com/forever/quests/...`** — note
+      this is a Forever-specific quest DB, not Classic's (issue #15's chains
+      used Classic's DB since Forever's wasn't browsable at the time; both
+      now exist as separate ID spaces on Wowhead, so don't assume they line
+      up 1:1). Each dungeon's full quest list was pulled from its
+      `wowhead.com/forever/quests/dungeons/<slug>` category page in one shot
+      (far fewer requests than a per-quest name search), then matched
+      against `Data.lua` by name; duplicate-titled results (mostly
+      Horde/Alliance breadcrumb pairs sharing a title, e.g. `Reclaimed
+      Treasures`, `Shadowshard Fragments`) were disambiguated by comparing
+      each Wowhead ID's own `Side`/`Start` NPC fields against the entry's
+      `faction`/`giver`.
+      **Follow-up pass (2026-09-26, same day): the remaining 16 ambiguous
+      entries were all resolved too**, by going through each one-by-one and
+      reading its actual quest text/Series/giver data instead of stopping at
+      "multiple same-titled results": `The Test of Righteousness` turned out
+      to be a real Human/Dwarf-shared 3-step chain (id = final step,
+      `1806`); `Unending Torment` is a genuine 5-step in-dungeon chain
+      (Forever-exclusive content, `Added in patch 1.60.1` not Classic's
+      `1.13.2`, which is why issue #15's Classic-only sweep never caught it
+      — id = `97290`, final step); `Crest of Lordaeron` and `Bijou's
+      Belongings` weren't chains at all, just mislabeled `faction =
+      "Neutral"` entries that are actually faction-forked — split into two
+      rows each (Horde/Alliance), matching the existing `Reclaimed
+      Treasures` pattern (also caught and fixed `Operative Bijou`'s same
+      mislabeling while there); `Allegiance to the Old Gods`, `Dark Iron
+      Legacy`, `A Taste of Flame`, and `Seal of Ascension` are real 2-step
+      chains (id = final step, drop/pickup step as prereq).
+      For the rest (`The Sparklematic 5200!`, `The Last Element`,
+      `Attunement to the Core`, `Free Knot!`, `The Gordok Ogre Suit`,
+      `Unfinished Gordok Business`, `The Darkreaver Menace`), the duplicate
+      IDs turned out to be near-identical text/reward — the game genuinely
+      hands out one of several interchangeable quest IDs for the same
+      action (a "use this object" quest issued once per party member, or a
+      quest whose reward got reworked in a later patch keeping the old ID
+      valid too). Rather than guess wrong, `Core.lua`'s `quest.id` (and a
+      `prereqs` entry's `id`) can now be an **array** of questIDs instead of
+      a single number — `FDQ:MatchesQuestID` (new helper) matches if ANY of
+      them is active/completed, so it's correct regardless of which ID a
+      given player's client actually issued them.
+      `The Great Ezra Grimm` wasn't ambiguous at all once searched properly
+      — Forever renamed it to **`The Great Fras Siabi`** (same giver, Smokey
+      LaRue, same quest) — Classic's title just never matched Forever's
+      quest log at all, on any client language. `Data.lua`'s `name` field
+      was corrected to match, not just given an `id`.
+      Net result: **every one of the original 218 top-level `Data.lua` quest
+      entries now has an `id`** (220 after the two faction-fork splits).
+      **Not done in this pass**: converting `prereqs` array entries (the
+      plain-string ones) to `{ name =, id = }` — issue #27 asked for this
+      too, but it's a substantially larger second pass (~150+ names) on top
+      of the top-level backfill above and was left for follow-up.
+      **Unverified**: same caveat as issue #15's IDs — these are sourced
+      from Wowhead's Forever DB during Beta, not confirmed against a live
+      client's actual `C_QuestLog` values; worth a spot-check via
+      `/fdq idscan` once testable.
 
 ## Releases
 

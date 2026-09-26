@@ -114,6 +114,27 @@ function FDQ:NormalizePrereqEntry(entry)
   return entry, nil
 end
 
+-- quest.id (or a prereqs entry's id) is normally a single questID number,
+-- but some in-game quests genuinely have no single canonical ID -- e.g.
+-- Gnomeregan's "The Sparklematic 5200!" is a simple "use this object" action
+-- that the game hands out as one of several interchangeable quest IDs (so
+-- multiple party members can hold their own copy without conflicting). For
+-- those, `id` can be an array of questIDs instead: id = { 2951, 2952, 4601,
+-- 4602, 4605, 4606 }. Matching succeeds if ANY of them shows up in the
+-- active/completed set -- a player only ever gets one of the IDs, so
+-- checking just one (as if it were a normal single-id quest) would report
+-- "Missing" for whichever players got handed a different one of the set.
+function FDQ:MatchesQuestID(id, idSet)
+  if not id or not idSet then return false end
+  if type(id) == "table" then
+    for _, single in ipairs(id) do
+      if idSet[single] then return true end
+    end
+    return false
+  end
+  return idSet[id] or false
+end
+
 function FDQ:GetPlayerFaction()
   local faction = UnitFactionGroup("player")
   return faction or "Neutral"
@@ -138,10 +159,10 @@ end
 -- nil for both and nothing changes from the old title-only behavior.
 function FDQ:GetQuestStatus(quest, activeTitles, activeIDs, completedIDs)
   if quest.id then
-    if activeIDs and activeIDs[quest.id] then
+    if FDQ:MatchesQuestID(quest.id, activeIDs) then
       return "active"
     end
-    if completedIDs and completedIDs[quest.id] then
+    if FDQ:MatchesQuestID(quest.id, completedIDs) then
       return "completed"
     end
   else
@@ -173,10 +194,10 @@ end
 function FDQ:GetPrereqStatus(prereqEntry, activeTitles, activeIDs, completedIDs)
   local name, id = FDQ:NormalizePrereqEntry(prereqEntry)
   if id then
-    if activeIDs and activeIDs[id] then
+    if FDQ:MatchesQuestID(id, activeIDs) then
       return "active"
     end
-    if completedIDs and completedIDs[id] then
+    if FDQ:MatchesQuestID(id, completedIDs) then
       return "completed"
     end
     return "missing"
