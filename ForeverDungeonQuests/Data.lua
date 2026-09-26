@@ -15,11 +15,10 @@
 -- by cross-checking giver/side against each entry's own transcribed giver/faction).
 -- `prereqs` array entries are backfilled with `id` too now (2026-09-26 follow-up pass),
 -- using the same Forever quest DB + Core.lua array-id support as the top-level entries.
--- Every plain-string prereqs entry got converted except one: "Just Compensation"
--- (Dead Man's Plea's prereqs) resolves to 15 near-identical same-titled quest IDs on
--- Wowhead with no distinguishing giver/side data at all (unlike the 2-way faction forks
--- elsewhere in this file) -- picking one blindly would be a guess, not a fix, so it's
--- left on the pre-existing title-matching behavior.
+-- Every plain-string prereqs entry is now converted, including "Just Compensation"
+-- (Dead Man's Plea's prereqs), which resolves to 16 same-titled quest IDs on Wowhead --
+-- confirmed (2026-09-26) to be interchangeable copies of the same quest, not distinct
+-- steps, so it uses the array-id form like the top-level interchangeable-ID quests.
 --
 -- `id` may also be an ARRAY of questIDs ( id = { 2951, 2952, ... } ) instead of a single
 -- number, for quests where the game itself hands out one of several interchangeable
@@ -454,7 +453,7 @@ FDQ_Dungeons = {
       { name = "Aurius' Reckoning", id = 5125, level = 55, faction = "Neutral", giver = "Aurius", location = "Stratholme, Undead Side, chapel at beginning", notes = "Complete The Medallion of Faith first.", prereqs = { { name = "The Medallion of Faith", id = 5122 } } },
       { name = "Above and Beyond", id = 5263, level = 55, faction = "Neutral", giver = "Duke Nicholas Zverenhoff", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 59", prereqs = { { name = "The Archivist", id = 5251 }, { name = "The Truth Comes Crashing Down", id = 5262 } } },
       { name = "Menethil's Gift", id = 5463, level = 57, faction = "Neutral", giver = "Leonid Barthalomew the Revered", location = "Eastern Plaguelands, Light's Hope Chapel", coords = "81, 57", prereqs = { { name = "Doctor Theolen Krastinov, the Butcher", id = 5382 }, { name = "Krastinov's Bag of Horrors", id = 5515 }, { name = "Kirtonos the Herald", id = 5384 }, { name = "The Human, Ras Frostwhisper", id = 5461 }, { name = "The Dying, Ras Frostwhisper", id = 5462 } } },
-      { name = "Dead Man's Plea", id = 8945, level = 58, faction = "Neutral", giver = "Anthion Harmon", location = "Eastern Plaguelands, Stratholme Main Entrance", coords = "30, 16", notes = "Requires the Extra-Dimensional Ghost Revealer to see the quest NPC. One step (Return to Deliana for Alliance / Return to Mokvar for Horde) is faction-specific and omitted below -- Just Compensation implies it.", prereqs = { { name = "A Supernatural Device", id = { 8922, 8923 } }, { name = "The Ectoplasmic Distiller", id = 8921 }, { name = "Hunting for Ectoplasm", id = 8924 }, { name = "A Portable Power Source", id = 8925 }, { name = "A Shifty Merchant", id = 8928 }, "Just Compensation", { name = "In Search of Anthion", id = { 8929, 8930 } } } },
+      { name = "Dead Man's Plea", id = 8945, level = 58, faction = "Neutral", giver = "Anthion Harmon", location = "Eastern Plaguelands, Stratholme Main Entrance", coords = "30, 16", notes = "Requires the Extra-Dimensional Ghost Revealer to see the quest NPC. One step (Return to Deliana for Alliance / Return to Mokvar for Horde) is faction-specific and omitted below -- Just Compensation implies it.", prereqs = { { name = "A Supernatural Device", id = { 8922, 8923 } }, { name = "The Ectoplasmic Distiller", id = 8921 }, { name = "Hunting for Ectoplasm", id = 8924 }, { name = "A Portable Power Source", id = 8925 }, { name = "A Shifty Merchant", id = 8928 }, { name = "Just Compensation", id = { 8926, 8944, 8936, 8935, 8938, 8941, 8927, 8933, 8940, 8937, 8932, 8931, 8939, 8943, 8934, 8942 } }, { name = "In Search of Anthion", id = { 8929, 8930 } } } },
     },
   },
 
@@ -504,12 +503,12 @@ FDQ_Dungeons = {
 -- would be wrong for half the playerbase. A prereq name missing here just
 -- renders without the extra detail -- not a bug, just unresearched/unconfirmed.
 -- Note this is separate from ID-based MATCHING (the `prereqs = { { name=, id= } }`
--- entries in FDQ_Dungeons above): several names once excluded from *this* table
--- for being faction-forked ("Badlands Reagent Run", "In Search of Anthion", "The
--- Sunken Temple") now match correctly by id regardless -- either a different id
--- per using-context, or Core.lua's array-id support matching either variant. Only
--- "Just Compensation" is still unresolved on both fronts (15 same-titled Wowhead
--- entries, no way to tell them apart).
+-- entries in FDQ_Dungeons above): every name once excluded from *this* table for
+-- being faction-forked or ambiguous ("Badlands Reagent Run", "In Search of
+-- Anthion", "The Sunken Temple", "Just Compensation") now matches correctly by id
+-- regardless -- either a different id per using-context, or Core.lua's array-id
+-- support matching any of several interchangeable/faction-variant IDs. They just
+-- still lack giver/location DISPLAY data in this specific table.
 FDQ_PrereqInfo = {
   ["A Portable Power Source"] = { giver = "Mux Manascrambler", location = "Tanaris, Gadgetzan" },
   ["A Reliquary of Purity"] = { giver = "Rabine Saturna", location = "Moonglade, Nighthaven" },
