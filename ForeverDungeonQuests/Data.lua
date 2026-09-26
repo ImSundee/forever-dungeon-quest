@@ -77,7 +77,7 @@ FDQ_Dungeons = {
       { name = "Deviate Hides", id = 1486, level = 13, faction = "Neutral", giver = "Nalpak", location = "The Barrens, above WC entrance", coords = "46, 35" },
       { name = "Deviate Eradication", id = 1487, level = 15, faction = "Neutral", giver = "Ebru", location = "The Barrens, above WC entrance", coords = "46, 35" },
       { name = "The Glowing Shard", id = 6981, level = 10, faction = "Neutral", giver = "Drop from Mutanus the Devourer", location = "Wailing Caverns", dungeonDrop = true },
-      { name = "Leaders of the Fang", id = 914, level = 15, faction = "Horde", giver = "Nara Wildmane", location = "Thunder Bluff, Elder Rise", coords = "45, 23", prereqs = { { name = "The Barrens Oases", id = 886 }, { name = "The Forgotten Pools", id = 870 }, { name = "The Stagnant Oasis", id = 877 }, { name = "Altered Beings", id = 880 }, { name = "Hamuul Runetotem", id = 1489 }, { name = "Nara Wildmane", id = 1490 } } },
+      { name = "Leaders of the Fang", id = 914, level = 15, faction = "Horde", giver = "Nara Wildmane", location = "Thunder Bluff, Elder Rise", coords = "45, 23", notes = "The Barrens Oases is an alternate, skippable entry point into this chain (Tonga hands out either it or The Forgotten Pools, not both) -- omitted below since requiring it shows a permanent false Missing for players who started via The Forgotten Pools instead.", prereqs = { { name = "The Forgotten Pools", id = 870 }, { name = "The Stagnant Oasis", id = 877 }, { name = "Altered Beings", id = 880 }, { name = "Hamuul Runetotem", id = 1489 }, { name = "Nara Wildmane", id = 1490 } } },
     },
   },
 
